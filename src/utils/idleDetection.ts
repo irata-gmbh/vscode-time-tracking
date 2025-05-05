@@ -16,7 +16,6 @@ export class IdleDetector {
    * @param onIdleDetected Callback when user goes idle
    */
   constructor(
-    private idleThresholdSeconds = 300,
     private onIdleDetected: () => void,
   ) {
     this.idleThreshold = idleThresholdSeconds * 1000; // Convert to milliseconds

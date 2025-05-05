@@ -26,9 +26,8 @@ export function formatDurationShort(milliseconds: number): string {
 
   if (hours > 0) {
     return `${hours}h ${minutes}m`;
-  } else {
-    return `${minutes}m`;
   }
+  return `${minutes}m`;
 }
 
 /**

@@ -34,7 +34,9 @@ export class TimeTrackerModel {
       // Load saved sessions from database
       this.loadSessions();
     } catch (error) {
-      vscode.window.showErrorMessage(`Failed to initialize time tracking database: ${error instanceof Error ? error.message : String(error)}`);
+      vscode.window.showErrorMessage(
+        `Failed to initialize time tracking database: ${error instanceof Error ? error.message : String(error)}`,
+      );
       // Fallback to empty sessions array if database fails
       this.sessions = [];
     }
@@ -43,7 +45,7 @@ export class TimeTrackerModel {
     context.subscriptions.push({
       dispose: () => {
         this.dbService.close();
-      }
+      },
     });
   }
 
@@ -196,17 +198,19 @@ export class TimeTrackerModel {
       this.currentSession.duration =
         this.currentSession.endTime.getTime() -
         this.currentSession.startTime.getTime();
-      
+
       // Store the session in memory array
       this.sessions.push({ ...this.currentSession });
-      
+
       // Save to database
       try {
         this.dbService.saveSession(this.currentSession);
       } catch (error) {
-        vscode.window.showErrorMessage(`Failed to save time tracking session: ${error instanceof Error ? error.message : String(error)}`);
+        vscode.window.showErrorMessage(
+          `Failed to save time tracking session: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
-      
+
       this.currentSession = undefined;
     }
   }
