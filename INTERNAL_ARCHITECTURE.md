@@ -7,14 +7,14 @@ This document explains the internal architecture and logic of the VS Code Time T
 The extension is built with a modular architecture consisting of several key components:
 
 1. **TimeTrackerModel**: Core data model for tracking sessions
-2. **DatabaseService**: Service for SQLite database operations
+2. **DatabaseService**: Service for CSV file operations
 3. **StatusBarController**: UI controller for the status bar display
 4. **ReportViewProvider**: WebView provider for displaying time reports
 5. **IdleDetector**: Utility for detecting user inactivity
 
 ```mermaid
 graph TD
-    A[VS Code Events] <--> B[TimeTrackerModel] <--> C[DatabaseService] <--> D[SQLite Database]
+    A[VS Code Events] <--> B[TimeTrackerModel] <--> C[DatabaseService] <--> D[CSV File]
     A --> E[IdleDetector]
     B --> F[StatusBarController]
     F --> G[ReportViewProvider]
@@ -25,7 +25,7 @@ graph TD
 When the extension activates:
 
 1. `TimeTrackerModel` is initialized and initializes the `DatabaseService`
-2. `DatabaseService` connects to the SQLite database and loads any saved sessions
+2. `DatabaseService` reads the CSV file and loads any saved sessions
 3. `StatusBarController` is created to display the current tracking status
 4. `IdleDetector` is set up to monitor user activity
 5. Commands like `startTracking`, `stopTracking`, etc. are registered
@@ -130,54 +130,49 @@ The extension supports these configuration settings:
 
 - `timeTracking.autoTrack`: Whether to start tracking automatically when a file is opened
 - `timeTracking.idleThreshold`: Time in seconds before considering the user idle
-- `timeTracking.databasePath`: Path to the SQLite database file (default: `~/time-tracking.sql`)
+- `timeTracking.csvFilePath`: Path to the CSV file (default: `~/time-tracking.csv`)
 
 ## Storage Strategy
 
-The extension uses SQLite for data persistence:
+The extension uses CSV files for data persistence:
 
-- Time tracking sessions are stored in a SQLite database file
-- The default database location is `~/time-tracking.sql`
-- The database path is configurable via the `timeTracking.databasePath` setting
-- Sessions are automatically saved to the database when they end
-- The database connection is properly closed when the extension is deactivated
+- Time tracking sessions are stored in a CSV file
+- The default file location is `~/time-tracking.csv`
+- The file path is configurable via the `timeTracking.csvFilePath` setting
+- Sessions are automatically saved to the file when they end
+- Each session is saved as a row in the CSV file
 
-### Database Schema
+### CSV File Structure
 
-The SQLite database uses the following schema:
+The CSV file has the following header structure:
 
-```sql
-CREATE TABLE IF NOT EXISTS sessions (
-  id TEXT PRIMARY KEY,
-  fileName TEXT NOT NULL,
-  filePath TEXT NOT NULL,
-  project TEXT NOT NULL,
-  startTime TEXT NOT NULL,
-  endTime TEXT,
-  duration INTEGER NOT NULL,
-  category TEXT,
-  notes TEXT
-)
+```
+id,fileName,filePath,project,startTime,endTime,duration,category,notes
 ```
 
-### Database Service
+- Special characters in text fields are properly escaped following CSV standards
+- Date fields are stored in ISO format for easy parsing
+- Duration is stored in milliseconds as a number
+
+### DatabaseService
 
 **File:** `src/services/databaseService.ts`
 
-The `DatabaseService` handles all SQLite database operations:
+The `DatabaseService` handles all CSV file operations:
 
-- **Connection Management**: Opens and closes the database connection
-- **Schema Management**: Creates database tables if they don't exist
+- **File Management**: Creates the CSV file with headers if it doesn't exist
+- **Data Serialization**: Converts TimeSession objects to CSV format and vice versa
 - **CRUD Operations**: Provides methods to save and load time tracking data
-- **Query Operations**: Offers specialized queries for statistics and reporting
+- **Search & Analysis**: Offers specialized functions for statistics and reporting
 - **Path Resolution**: Handles path expansion for the `~` home directory symbol
 
 **Key Methods:**
-- `saveSession()`: Saves a time tracking session to the database
-- `loadSessions()`: Loads all sessions from the database
-- `getCategoryStats()`: Gets statistics about time spent per category
-- `getProjectTotalTime()`: Gets total time spent on a specific project
-- `close()`: Closes the database connection
+- `saveSession()`: Saves a time tracking session to the CSV file
+- `loadSessions()`: Loads all sessions from the CSV file
+- `getCategoryStats()`: Calculates statistics about time spent per category
+- `getProjectTotalTime()`: Calculates total time spent on a specific project
+- `escapeCSV()`: Handles proper escaping of special characters in CSV fields
+- `parseCSVLine()`: Parses CSV lines accounting for quoted fields and escaped quotes
 
 ## Command Registration
 
@@ -278,14 +273,15 @@ The workflow can also be manually triggered from the GitHub Actions tab for test
 - Time calculations use millisecond precision for accuracy
 - Idle detection checks run at a lower frequency (every minute) to minimize performance impact
 - Status bar updates occur every second to provide real-time feedback without excessive updates
-- Using SQLite for storage provides better performance and reliability for large amounts of data
-- Database operations are properly error-handled to ensure data integrity
+- Using CSV for storage provides simple, human-readable data format that can be easily viewed and edited
+- File operations are properly error-handled to ensure data integrity
+- In-memory caching of sessions improves performance for frequently accessed data
 
 ## Extension Points for Future Enhancement
 
-1. **Data Export**: Add functionality to export time tracking data to CSV/JSON
+1. **Data Export**: Add functionality to export time tracking data to other formats like JSON
 2. **Visualization Improvements**: Enhanced charts and graphs for time analysis
 3. **Team Integration**: Share time tracking data across a team
 4. **Task Integration**: Link tracking sessions with tasks from issue trackers
 5. **Automatic Categorization**: Use AI to suggest categories based on file content
-6. **Database Backup**: Add functionality to backup and restore the SQLite database
+6. **Data Backup**: Add functionality to backup and restore the CSV data

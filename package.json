@@ -94,10 +94,10 @@
           "default": 300,
           "description": "Time in seconds before considering the user idle"
         },
-        "timeTracking.databasePath": {
+        "timeTracking.csvFilePath": {
           "type": "string",
-          "default": "~/time-tracking.sql",
-          "description": "Path to the SQLite database file for storing time tracking data"
+          "default": "~/time-tracking.csv",
+          "description": "Path to the CSV file for storing time tracking data"
         }
       }
     }
@@ -153,8 +153,5 @@
     "lint-staged": "^13.3.0",
     "npm-run-all": "^4.1.5",
     "typescript": "^5.8.3"
-  },
-  "dependencies": {
-    "better-sqlite3": "^11.9.1"
   }
 }
