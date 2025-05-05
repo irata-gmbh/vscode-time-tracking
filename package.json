@@ -107,6 +107,7 @@
       "biome check --files-ignore-unknown=true --diagnostic-level=error --write --no-errors-on-unmatched"
     ]
   },
+  "packageManager": "pnpm@10.10.0",
   "scripts": {
     "vscode:prepublish": "pnpm run package",
     "compile": "pnpm run check-types && pnpm run lint && node esbuild.js",
