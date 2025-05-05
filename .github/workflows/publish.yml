@@ -55,7 +55,9 @@ jobs:
           export DISPLAY=:99
           
       - name: Run tests
-        run: pnpm run test
+        run: |
+          export DISPLAY=:99
+          pnpm run test
         
       - name: Package Extension
         run: pnpm run package
