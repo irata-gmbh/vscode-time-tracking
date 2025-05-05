@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { DatabaseService } from "../services/databaseService";
 
 /**
  * Represents a time tracking session
@@ -24,10 +25,26 @@ export class TimeTrackerModel {
   private lastActiveFile: string | undefined;
   private timer: NodeJS.Timeout | undefined;
   private updateInterval = 1000; // Update interval in ms
+  private dbService!: DatabaseService;
 
   constructor(private context: vscode.ExtensionContext) {
-    // Load saved sessions from storage
-    this.loadSessions();
+    // Initialize the database service
+    try {
+      this.dbService = new DatabaseService();
+      // Load saved sessions from database
+      this.loadSessions();
+    } catch (error) {
+      vscode.window.showErrorMessage(`Failed to initialize time tracking database: ${error instanceof Error ? error.message : String(error)}`);
+      // Fallback to empty sessions array if database fails
+      this.sessions = [];
+    }
+
+    // Register extension deactivation handler to close database
+    context.subscriptions.push({
+      dispose: () => {
+        this.dbService.close();
+      }
+    });
   }
 
   /**
@@ -142,48 +159,21 @@ export class TimeTrackerModel {
    * Gets total time spent on a specific project
    */
   public getProjectTotalTime(project: string): number {
-    return this.sessions
-      .filter((session) => session.project === project)
-      .reduce((total, session) => total + session.duration, 0);
+    return this.dbService.getProjectTotalTime(project);
   }
 
   /**
    * Gets statistics for time spent per category
    */
   public getCategoryStats(): { category: string; duration: number }[] {
-    const stats: Record<string, number> = {};
-
-    this.sessions.forEach((session) => {
-      const category = session.category || "Uncategorized";
-      stats[category] = (stats[category] || 0) + session.duration;
-    });
-
-    return Object.entries(stats).map(([category, duration]) => ({
-      category,
-      duration,
-    }));
+    return this.dbService.getCategoryStats();
   }
 
   /**
-   * Saves sessions to extension storage
-   */
-  public saveSessions(): void {
-    this.context.globalState.update("timeTrackingSessions", this.sessions);
-  }
-
-  /**
-   * Loads sessions from extension storage
+   * Loads sessions from the database
    */
   private loadSessions(): void {
-    const savedSessions = this.context.globalState.get<TimeSession[]>(
-      "timeTrackingSessions",
-      [],
-    );
-    this.sessions = savedSessions.map((session) => ({
-      ...session,
-      startTime: new Date(session.startTime),
-      endTime: session.endTime ? new Date(session.endTime) : undefined,
-    }));
+    this.sessions = this.dbService.loadSessions();
   }
 
   /**
@@ -206,8 +196,17 @@ export class TimeTrackerModel {
       this.currentSession.duration =
         this.currentSession.endTime.getTime() -
         this.currentSession.startTime.getTime();
+      
+      // Store the session in memory array
       this.sessions.push({ ...this.currentSession });
-      this.saveSessions();
+      
+      // Save to database
+      try {
+        this.dbService.saveSession(this.currentSession);
+      } catch (error) {
+        vscode.window.showErrorMessage(`Failed to save time tracking session: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      
       this.currentSession = undefined;
     }
   }

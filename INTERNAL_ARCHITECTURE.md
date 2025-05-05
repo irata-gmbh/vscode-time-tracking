@@ -7,27 +7,29 @@ This document explains the internal architecture and logic of the VS Code Time T
 The extension is built with a modular architecture consisting of several key components:
 
 1. **TimeTrackerModel**: Core data model for tracking sessions
-2. **StatusBarController**: UI controller for the status bar display
-3. **ReportViewProvider**: WebView provider for displaying time reports
-4. **IdleDetector**: Utility for detecting user inactivity
+2. **DatabaseService**: Service for SQLite database operations
+3. **StatusBarController**: UI controller for the status bar display
+4. **ReportViewProvider**: WebView provider for displaying time reports
+5. **IdleDetector**: Utility for detecting user inactivity
 
 ```mermaid
 graph TD
-    A[VS Code Events] <--> B[TimeTrackerModel] <--> C[Extension Storage]
-    A --> D[IdleDetector]
-    B --> E[StatusBarController]
-    E --> F[ReportViewProvider]
+    A[VS Code Events] <--> B[TimeTrackerModel] <--> C[DatabaseService] <--> D[SQLite Database]
+    A --> E[IdleDetector]
+    B --> F[StatusBarController]
+    F --> G[ReportViewProvider]
 ```
 
 ### Activation Process
 
 When the extension activates:
 
-1. `TimeTrackerModel` is initialized and loads any saved sessions from storage
-2. `StatusBarController` is created to display the current tracking status
-3. `IdleDetector` is set up to monitor user activity
-4. Commands like `startTracking`, `stopTracking`, etc. are registered
-5. The `ReportViewProvider` is registered to show time tracking reports
+1. `TimeTrackerModel` is initialized and initializes the `DatabaseService`
+2. `DatabaseService` connects to the SQLite database and loads any saved sessions
+3. `StatusBarController` is created to display the current tracking status
+4. `IdleDetector` is set up to monitor user activity
+5. Commands like `startTracking`, `stopTracking`, etc. are registered
+6. The `ReportViewProvider` is registered to show time tracking reports
 
 ## Core Components in Detail
 
@@ -128,14 +130,54 @@ The extension supports these configuration settings:
 
 - `timeTracking.autoTrack`: Whether to start tracking automatically when a file is opened
 - `timeTracking.idleThreshold`: Time in seconds before considering the user idle
+- `timeTracking.databasePath`: Path to the SQLite database file (default: `~/time-tracking.sql`)
 
 ## Storage Strategy
 
-The extension uses VS Code's `ExtensionContext.globalState` for data persistence:
+The extension uses SQLite for data persistence:
 
-- Sessions are saved as a JSON array under the key "timeTrackingSessions"
-- Date objects are serialized to strings during storage and restored to Date objects when loaded
-- Data is automatically saved when sessions end or when VS Code is closed
+- Time tracking sessions are stored in a SQLite database file
+- The default database location is `~/time-tracking.sql`
+- The database path is configurable via the `timeTracking.databasePath` setting
+- Sessions are automatically saved to the database when they end
+- The database connection is properly closed when the extension is deactivated
+
+### Database Schema
+
+The SQLite database uses the following schema:
+
+```sql
+CREATE TABLE IF NOT EXISTS sessions (
+  id TEXT PRIMARY KEY,
+  fileName TEXT NOT NULL,
+  filePath TEXT NOT NULL,
+  project TEXT NOT NULL,
+  startTime TEXT NOT NULL,
+  endTime TEXT,
+  duration INTEGER NOT NULL,
+  category TEXT,
+  notes TEXT
+)
+```
+
+### Database Service
+
+**File:** `src/services/databaseService.ts`
+
+The `DatabaseService` handles all SQLite database operations:
+
+- **Connection Management**: Opens and closes the database connection
+- **Schema Management**: Creates database tables if they don't exist
+- **CRUD Operations**: Provides methods to save and load time tracking data
+- **Query Operations**: Offers specialized queries for statistics and reporting
+- **Path Resolution**: Handles path expansion for the `~` home directory symbol
+
+**Key Methods:**
+- `saveSession()`: Saves a time tracking session to the database
+- `loadSessions()`: Loads all sessions from the database
+- `getCategoryStats()`: Gets statistics about time spent per category
+- `getProjectTotalTime()`: Gets total time spent on a specific project
+- `close()`: Closes the database connection
 
 ## Command Registration
 
@@ -190,7 +232,8 @@ Notes can be added to any active session to provide context about the work being
 - Time calculations use millisecond precision for accuracy
 - Idle detection checks run at a lower frequency (every minute) to minimize performance impact
 - Status bar updates occur every second to provide real-time feedback without excessive updates
-- When loading session data, date parsing is handled carefully to ensure proper date objects
+- Using SQLite for storage provides better performance and reliability for large amounts of data
+- Database operations are properly error-handled to ensure data integrity
 
 ## Extension Points for Future Enhancement
 
@@ -199,3 +242,4 @@ Notes can be added to any active session to provide context about the work being
 3. **Team Integration**: Share time tracking data across a team
 4. **Task Integration**: Link tracking sessions with tasks from issue trackers
 5. **Automatic Categorization**: Use AI to suggest categories based on file content
+6. **Database Backup**: Add functionality to backup and restore the SQLite database
