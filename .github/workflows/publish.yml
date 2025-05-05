@@ -47,17 +47,17 @@ jobs:
       - name: Lint
         run: pnpm run lint
         
-      - name: Setup Xvfb
+      - name: Setup dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb x11-xkb-utils
-          Xvfb :99 -screen 0 1024x768x24 &
-          export DISPLAY=:99
+          sudo apt-get install -y xvfb libxkbfile-dev libsecret-1-dev libnss3 libasound2 libgbm1 libgtk-3-0
+          sudo apt-get install -y libxss1 libgconf-2-4 libatk1.0-0 libatk-bridge2.0-0 libgdk-pixbuf2.0-0 libgtk-3-0 libgbm1 libnss3 libxss1
+          sudo apt-get install -y libasound2 fonts-noto-color-emoji libcups2 libdrm2 libatspi2.0-0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2
           
       - name: Run tests
         run: |
-          export DISPLAY=:99
-          pnpm run test
+          # Use xvfb-run to handle display setup automatically
+          xvfb-run --auto-servernum --server-args="-screen 0 1024x768x24" pnpm run test
         
       - name: Package Extension
         run: pnpm run package
