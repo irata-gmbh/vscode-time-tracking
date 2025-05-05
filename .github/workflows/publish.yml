@@ -108,6 +108,7 @@ jobs:
         with:
           files: time-tracking-*.vsix
           generate_release_notes: true
+          token: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Notify on success
         if: success()
