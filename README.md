@@ -11,7 +11,7 @@ Track time spent on different tasks, projects, and files within Visual Studio Co
 - **Session Notes**: Attach notes to your time tracking sessions for later reference
 - **Project Statistics**: See time spent per project and per category
 - **Status Bar Integration**: Shows current tracking status and elapsed time in the status bar
-- **SQLite Storage**: Stores time tracking data in a SQLite database for better performance and reliability
+- **CSV Storage**: Stores time tracking data in a CSV file for simple, human-readable data persistence
 
 ## Usage
 
@@ -45,16 +45,17 @@ This extension contributes the following settings:
 
 * `timeTracking.autoTrack`: Enable/disable automatic time tracking when a file is opened
 * `timeTracking.idleThreshold`: Time in seconds before considering the user idle
-* `timeTracking.databasePath`: Path to the SQLite database file (default: `~/time-tracking.sql`)
+* `timeTracking.csvFilePath`: Path to the CSV file for storing time tracking data (default: `~/time-tracking.csv`)
 
 ## Data Storage
 
-The extension stores all time tracking data in a SQLite database:
+The extension stores all time tracking data in a CSV file:
 
-- The default database location is `~/time-tracking.sql`
-- You can change the database location in the extension settings
-- Data is automatically saved to the database when sessions end
-- The database can be backed up like any other file on your system
+- The default file location is `~/time-tracking.csv`
+- You can change the file location in the extension settings
+- Data is automatically saved to the file when sessions end
+- The CSV format allows for easy viewing and editing with spreadsheet applications
+- The file can be backed up like any other file on your system
 
 ## Commands
 

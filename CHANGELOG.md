@@ -7,15 +7,15 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 ## [Unreleased]
 
 ### Added
-- SQLite database storage for time tracking data
-- Added `timeTracking.databasePath` setting to configure database location (default: `~/time-tracking.sql`)
-- Improved data persistence and reliability for large amounts of tracking data
+- CSV file storage for time tracking data
+- Added `timeTracking.csvFilePath` setting to configure CSV file location (default: `~/time-tracking.csv`)
+- Improved data persistence and reliability with human-readable CSV format
 - GitHub Actions workflow for automated testing and publishing to VS Code Marketplace
 - VSIX artifact creation and attaching to GitHub releases
 
 ### Changed
-- Migrated from VS Code global state storage to SQLite for better performance
-- Updated internal architecture to support database operations
+- Migrated from VS Code global state storage to CSV file for better performance
+- Updated internal architecture to support CSV file operations
 - Added publisher field to package.json for marketplace publishing
 
 ## [0.0.1]
