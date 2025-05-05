@@ -53,14 +53,8 @@ jobs:
           # Install all dependencies including sound libraries
           sudo apt-get install -y xvfb libxkbfile-dev libsecret-1-dev libnss3 libgbm1 libgtk-3-0
           sudo apt-get install -y fonts-noto-color-emoji libcups2 libdrm2 libatspi2.0-0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2
-          # Find and install the appropriate sound library based on what's available
-          if apt-cache search --names-only libasound2; then
-            sudo apt-get install -y libasound2
-          elif apt-cache search --names-only libasound2t64; then
-            sudo apt-get install -y libasound2t64
-          else
-            echo "No appropriate sound library found, trying to continue without it"
-          fi
+          # Install sound libraries based on what's available in the system
+          sudo apt-get install -y libasound2t64 || sudo apt-get install -y liboss4-salsa-asound2 || echo "ALSA sound libraries not available, continuing without them"
           
       - name: Run tests
         run: |
