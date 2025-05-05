@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+CI=1
+pnpm type-check
+
+current_branch=$(git symbolic-ref --short HEAD)
+if [ "$current_branch" = "main" ]; then
+  echo "On main branch"
+  pnpm test
+else
+  echo "Not on main branch"
+fi
+
