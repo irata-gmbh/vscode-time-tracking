@@ -227,6 +227,52 @@ Users can add categories to their tracking sessions to better organize their tim
 
 Notes can be added to any active session to provide context about the work being done. These notes are stored with the session data and displayed in reports.
 
+## CI/CD Pipeline
+
+The extension uses GitHub Actions to automate the testing and publishing process:
+
+### GitHub Actions Workflows
+
+**File:** `.github/workflows/publish.yml`
+
+The CI/CD pipeline consists of two main jobs:
+
+1. **Build Job**
+   - Triggered on push of tags starting with 'v' (e.g., v1.0.0) or manual triggering
+   - Sets up Node.js and PNPM
+   - Installs dependencies
+   - Runs type checking, linting, and tests
+   - Packages the extension into a VSIX file
+   - Uploads the VSIX file as an artifact
+
+2. **Publish Job**
+   - Runs only after successful completion of the build job
+   - Only runs when triggered by a version tag (e.g., v1.0.0)
+   - Downloads the VSIX artifact from the build job
+   - Publishes the extension to the VS Code Marketplace using the VSCODE_MARKETPLACE_TOKEN
+   - Creates a GitHub Release with the VSIX attached
+
+### GitHub Secrets
+
+The workflow requires the following secret to be configured in the repository:
+
+- `VSCODE_MARKETPLACE_TOKEN`: A Personal Access Token (PAT) from Azure DevOps with publishing rights
+
+### Publishing Process
+
+1. The version in `package.json` is updated
+2. A new tag is created that matches the version (e.g., v1.0.0)
+3. The tag is pushed to GitHub
+4. The GitHub Actions workflow automatically:
+   - Builds and tests the extension
+   - Packages it into a VSIX file
+   - Publishes it to the VS Code Marketplace
+   - Creates a GitHub Release with the VSIX file attached
+
+### Manual Override
+
+The workflow can also be manually triggered from the GitHub Actions tab for testing or in case the automatic process fails.
+
 ## Performance Considerations
 
 - Time calculations use millisecond precision for accuracy

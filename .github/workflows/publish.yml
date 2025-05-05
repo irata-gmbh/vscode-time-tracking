@@ -1,0 +1,106 @@
+name: Publish Extension
+
+# Controls when the action will run
+on:
+  push:
+    tags:
+      - 'v*' # Run when tag matches v*, i.e. v1.0, v1.1.0, etc.
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v3
+        with:
+          version: '8'
+          run_install: false
+          
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+          
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+            
+      - name: Install dependencies
+        run: pnpm install
+        
+      - name: Check types
+        run: pnpm run check-types
+        
+      - name: Lint
+        run: pnpm run lint
+        
+      - name: Run tests
+        run: pnpm run test
+        
+      - name: Package Extension
+        run: pnpm run package
+        
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: time-tracking-extension
+          path: time-tracking-*.vsix
+          if-no-files-found: error
+      
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    if: success() && startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v3
+        with:
+          version: '8'
+          run_install: false
+          
+      - name: Install dependencies
+        run: pnpm install
+        
+      - name: Download Extension Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: time-tracking-extension
+          
+      - name: Install vsce
+        run: pnpm install -g @vscode/vsce
+        
+      - name: Publish to Visual Studio Marketplace
+        run: vsce publish -p ${{ secrets.VSCODE_MARKETPLACE_TOKEN }}
+        
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: time-tracking-*.vsix
+          generate_release_notes: true
+          
+      - name: Notify on success
+        if: success()
+        run: |
+          echo "Extension successfully published to VS Code Marketplace and GitHub release created!"

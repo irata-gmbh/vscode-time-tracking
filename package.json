@@ -3,6 +3,12 @@
   "displayName": "Time Tracking",
   "description": "Tracks time spent on different tasks in VS Code and keeps the data on your local machine.",
   "version": "0.0.1",
+  "publisher": "irata GmbH",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-github-username/vscode-time-tracking"
+  },
   "engines": {
     "vscode": "^1.99.0"
   },

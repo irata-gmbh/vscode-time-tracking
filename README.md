@@ -90,6 +90,47 @@ The extension stores all time tracking data in a SQLite database:
    pnpm run compile
    ```
 
+### Publishing to VS Code Marketplace
+
+This extension uses GitHub Actions for automated testing and publishing. To publish a new version:
+
+1. Update the version in `package.json`
+2. Create and push a new tag that matches the version:
+   ```bash
+   git tag v0.0.1
+   git push --tags
+   ```
+3. GitHub Actions will automatically build, test, and publish the extension to the VS Code Marketplace
+
+#### Manual Publishing
+
+If you need to publish manually:
+
+1. Install `vsce`, the VS Code Extension Manager:
+   ```bash
+   pnpm install -g @vscode/vsce
+   ```
+
+2. Package the extension:
+   ```bash
+   pnpm run package
+   ```
+   This will create a `.vsix` file in the root directory.
+
+3. Publish to the marketplace:
+   ```bash
+   vsce publish
+   ```
+   Note: This requires a Personal Access Token from the Azure DevOps organization.
+
+### Continuous Integration
+
+The extension uses GitHub Actions for CI/CD:
+
+- Every push to the main branch runs tests
+- Tagged releases (starting with 'v') trigger an automatic build and publish
+- Manual workflow runs can be triggered from GitHub Actions tab
+
 ### Development Workflow
 
 For active development with automatic rebuilding:
