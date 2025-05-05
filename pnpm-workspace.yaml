@@ -1,4 +1,6 @@
 onlyBuiltDependencies:
   - '@biomejs/biome'
+  - '@vscode/vsce-sign'
   - better-sqlite3
   - esbuild
+  - keytar

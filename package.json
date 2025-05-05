@@ -3,7 +3,7 @@
   "displayName": "Time Tracking",
   "description": "Tracks time spent on different tasks in VS Code and keeps the data on your local machine.",
   "version": "0.0.1",
-  "publisher": "irata GmbH",
+  "publisher": "irataGmbH",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -110,6 +110,7 @@
   "packageManager": "pnpm@10.10.0",
   "scripts": {
     "vscode:prepublish": "pnpm run package",
+    "build": "pnpm run package && vsce package -o time-tracking-$(node -p \"require('./package.json').version\").vsix",
     "compile": "pnpm run check-types && pnpm run lint && node esbuild.js",
     "watch": "npm-run-all -p watch:*",
     "watch:esbuild": "node esbuild.js --watch",
@@ -122,6 +123,22 @@
     "lint": "biome lint .",
     "test": "vscode-test"
   },
+  "vsce": {
+    "packageIgnore": [
+      "node_modules",
+      ".vscode-test",
+      ".gitignore",
+      ".github",
+      "src/**",
+      "!src/assets/**",
+      "out/**/*.map",
+      "tsconfig.json",
+      "biome.json",
+      "esbuild.js",
+      "pnpm-lock.yaml"
+    ],
+    "dependencies": false
+  },
   "devDependencies": {
     "@biomejs/biome": "^1.6.1",
     "@types/better-sqlite3": "^7.6.13",
@@ -130,6 +147,7 @@
     "@types/vscode": "^1.99.0",
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.3.2",
     "esbuild": "^0.25.3",
     "husky": "^8.0.3",
     "lint-staged": "^13.3.0",

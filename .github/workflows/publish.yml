@@ -60,13 +60,16 @@ jobs:
           xvfb-run --auto-servernum --server-args="-screen 0 1024x768x24" pnpm run test
         
       - name: Package Extension
-        run: pnpm run package
+        run: |
+          npx vsce package -o time-tracking-$(node -p "require('./package.json').version").vsix --no-dependencies
         
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: time-tracking-extension
-          path: time-tracking-*.vsix
+          path: |
+            *.vsix
+            time-tracking-*.vsix
           if-no-files-found: error
       
   publish:
@@ -94,12 +97,9 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: time-tracking-extension
-          
-      - name: Install vsce
-        run: pnpm install -g @vscode/vsce
         
       - name: Publish to Visual Studio Marketplace
-        run: vsce publish -p ${{ secrets.VSCODE_MARKETPLACE_TOKEN }}
+        run: npx vsce publish -p ${{ secrets.VSCODE_MARKETPLACE_TOKEN }}
         
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
