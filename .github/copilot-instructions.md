@@ -20,4 +20,4 @@ Please use the get_vscode_api with a query as input to fetch the latest VS Code 
 - Use VS Code extension API correctly
 - Ensure good error handling
 - Write modular and testable code
-- Update the relevant project markdown files to reflect the changes
+- Update the relevant project markdown files (README.md, CHANGELOG.md, INTERNAL_ARCHITECTURE.md, ...) to reflect the changes
