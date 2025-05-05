@@ -1,0 +1,124 @@
+{
+  "name": "time-tracking",
+  "displayName": "Time Tracking",
+  "description": "Tracks time spent on different tasks in VS Code and keeps the data on your local machine.",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.99.0"
+  },
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "time-tracking.startTracking",
+        "title": "Start Time Tracking"
+      },
+      {
+        "command": "time-tracking.stopTracking",
+        "title": "Stop Time Tracking"
+      },
+      {
+        "command": "time-tracking.toggleTracking",
+        "title": "Toggle Time Tracking"
+      },
+      {
+        "command": "time-tracking.addCategory",
+        "title": "Time Tracking: Add Category"
+      },
+      {
+        "command": "time-tracking.addNotes",
+        "title": "Time Tracking: Add Notes"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "time-tracking",
+          "title": "Time Tracking",
+          "icon": "$(clock)"
+        }
+      ]
+    },
+    "views": {
+      "time-tracking": [
+        {
+          "type": "webview",
+          "id": "timeTracking.reportView",
+          "name": "Time Reports"
+        }
+      ]
+    },
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "time-tracking.startTracking",
+          "when": "!timeTracking.isTracking"
+        },
+        {
+          "command": "time-tracking.stopTracking",
+          "when": "timeTracking.isTracking"
+        },
+        {
+          "command": "time-tracking.addCategory",
+          "when": "timeTracking.isTracking"
+        },
+        {
+          "command": "time-tracking.addNotes",
+          "when": "timeTracking.isTracking"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Time Tracking",
+      "properties": {
+        "timeTracking.autoTrack": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically track time when a file is opened"
+        },
+        "timeTracking.idleThreshold": {
+          "type": "number",
+          "default": 300,
+          "description": "Time in seconds before considering the user idle"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "pnpm run package",
+    "compile": "pnpm run check-types && pnpm run lint && node esbuild.js",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "pnpm run check-types && pnpm run lint && node esbuild.js --production",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
+    "check-types": "tsc --noEmit",
+    "lint": "biome check .",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.6.1",
+    "@types/vscode": "^1.99.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "@typescript-eslint/eslint-plugin": "^8.31.1",
+    "@typescript-eslint/parser": "^8.31.1",
+    "husky": "^8.0.3",
+    "knip": "^5.53.0",
+    "lint-staged": "^13.3.0",
+    "esbuild": "^0.25.3",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.8.3",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}
