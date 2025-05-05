@@ -9,24 +9,30 @@ export class IdleDetector {
   private idleCheckInterval = 60000; // Check every minute
   private timer: NodeJS.Timeout | undefined;
   private idleDetected = false;
+  private disposables: vscode.Disposable[] = [];
 
   /**
    * Creates a new idle detector
    * @param idleThresholdSeconds Seconds of inactivity before considered idle
    * @param onIdleDetected Callback when user goes idle
+   * @param onUserReturned Callback when user returns from idle state
    */
   constructor(
+    private idleThresholdSeconds: number,
     private onIdleDetected: () => void,
+    private onUserReturned?: () => void
   ) {
     this.idleThreshold = idleThresholdSeconds * 1000; // Convert to milliseconds
     this.updateIdleThresholdFromConfig();
 
     // Listen for configuration changes
-    vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration("timeTracking.idleThreshold")) {
-        this.updateIdleThresholdFromConfig();
-      }
-    });
+    this.disposables.push(
+      vscode.workspace.onDidChangeConfiguration((e) => {
+        if (e.affectsConfiguration("timeTracking.idleThreshold")) {
+          this.updateIdleThresholdFromConfig();
+        }
+      })
+    );
   }
 
   /**
@@ -62,6 +68,9 @@ export class IdleDetector {
     // If user was previously idle and is now active again
     if (this.idleDetected) {
       this.idleDetected = false;
+      if (this.onUserReturned) {
+        this.onUserReturned();
+      }
     }
   }
 
@@ -77,6 +86,20 @@ export class IdleDetector {
       this.idleDetected = true;
       this.onIdleDetected();
     }
+  }
+
+  /**
+   * Returns whether the user is currently in idle state
+   */
+  public isIdle(): boolean {
+    return this.idleDetected;
+  }
+
+  /**
+   * Returns time since last activity in milliseconds
+   */
+  public getTimeSinceLastActivity(): number {
+    return Date.now() - this.lastActivity;
   }
 
   /**
@@ -97,20 +120,29 @@ export class IdleDetector {
    */
   private registerActivityEvents(): void {
     // Editor events
-    vscode.window.onDidChangeActiveTextEditor(() => this.recordActivity());
-    vscode.window.onDidChangeTextEditorSelection(() => this.recordActivity());
-    vscode.window.onDidChangeTextEditorVisibleRanges(() =>
-      this.recordActivity(),
+    this.disposables.push(
+      vscode.window.onDidChangeActiveTextEditor(() => this.recordActivity()),
+      vscode.window.onDidChangeTextEditorSelection(() => this.recordActivity()),
+      vscode.window.onDidChangeTextEditorVisibleRanges(() => this.recordActivity()),
+
+      // Document events
+      vscode.workspace.onDidChangeTextDocument(() => this.recordActivity()),
+
+      // Terminal events
+      vscode.window.onDidChangeActiveTerminal(() => this.recordActivity()),
+      vscode.window.onDidOpenTerminal(() => this.recordActivity()),
+
+      // Other UI events
+      vscode.window.onDidChangeWindowState(() => this.recordActivity())
     );
+  }
 
-    // Document events
-    vscode.workspace.onDidChangeTextDocument(() => this.recordActivity());
-
-    // Terminal events
-    vscode.window.onDidChangeActiveTerminal(() => this.recordActivity());
-    vscode.window.onDidOpenTerminal(() => this.recordActivity());
-
-    // Other UI events
-    vscode.window.onDidChangeWindowState(() => this.recordActivity());
+  /**
+   * Disposes all registered event listeners
+   */
+  public dispose(): void {
+    this.stopMonitoring();
+    this.disposables.forEach(d => d.dispose());
+    this.disposables = [];
   }
 }

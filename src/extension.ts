@@ -39,14 +39,40 @@ export function activate(context: vscode.ExtensionContext) {
           });
       }
     },
+    // Add onUserReturned callback
+    () => {
+      // When user returns from idle state and tracking is active
+      if (timeTracker.isTracking()) {
+        vscode.window.showInformationMessage(
+          "Welcome back! Time tracking has continued."
+        );
+      }
+    }
   );
+  
+  // Add the idleDetector to context subscriptions for proper cleanup
+  context.subscriptions.push(idleDetector);
 
-  // Start idle detection when tracking is active
-  if (
-    vscode.workspace.getConfiguration("timeTracking").get("autoTrack", true)
-  ) {
+  // Start idle detection when auto-track is enabled
+  const autoTrack = vscode.workspace.getConfiguration("timeTracking").get("autoTrack", true);
+  if (autoTrack) {
     idleDetector.startMonitoring();
   }
+
+  // Watch for configuration changes
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration(e => {
+      if (e.affectsConfiguration("timeTracking.autoTrack")) {
+        const autoTrackEnabled = vscode.workspace.getConfiguration("timeTracking").get("autoTrack", true);
+        
+        if (autoTrackEnabled && timeTracker.isTracking()) {
+          idleDetector.startMonitoring();
+        } else if (!autoTrackEnabled) {
+          idleDetector.stopMonitoring();
+        }
+      }
+    })
+  );
 
   // Register the report view provider
   const reportViewProvider = new ReportViewProvider(
@@ -84,6 +110,8 @@ export function activate(context: vscode.ExtensionContext) {
     () => {
       timeTracker.stopTracking();
       statusBarController.stopTimer();
+      // Stop idle monitoring when tracking stops
+      idleDetector.stopMonitoring();
       // Update tracking context
       vscode.commands.executeCommand(
         "setContext",
@@ -101,6 +129,8 @@ export function activate(context: vscode.ExtensionContext) {
       if (timeTracker.isTracking()) {
         timeTracker.stopTracking();
         statusBarController.stopTimer();
+        // Stop idle monitoring when tracking stops
+        idleDetector.stopMonitoring();
         // Update tracking context
         vscode.commands.executeCommand(
           "setContext",
