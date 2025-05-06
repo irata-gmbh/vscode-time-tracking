@@ -35,6 +35,13 @@ export function activate(context: vscode.ExtensionContext) {
               vscode.window.showInformationMessage(
                 "Time tracking stopped due to inactivity.",
               );
+              idleDetector.clearActiveNotification();
+            } else if (selection === "Continue Tracking") {
+              // Clear the notification reference when the user manually selects "Continue Tracking"
+              idleDetector.clearActiveNotification();
+            } else if (selection) {
+              // Store the notification to dismiss it automatically on activity
+              idleDetector.setActiveNotification(selection);
             }
           });
       }

@@ -10,6 +10,8 @@ export class IdleDetector {
   private timer: NodeJS.Timeout | undefined;
   private idleDetected = false;
   private disposables: vscode.Disposable[] = [];
+  private activeNotification: vscode.MessageItem | undefined;
+  private autoDismissEnabled = true;
 
   /**
    * Creates a new idle detector
@@ -20,10 +22,11 @@ export class IdleDetector {
   constructor(
     private idleThresholdSeconds: number,
     private onIdleDetected: () => void,
-    private onUserReturned?: () => void
+    private onUserReturned?: () => void,
   ) {
     this.idleThreshold = idleThresholdSeconds * 1000; // Convert to milliseconds
     this.updateIdleThresholdFromConfig();
+    this.updateAutoDismissFromConfig();
 
     // Listen for configuration changes
     this.disposables.push(
@@ -31,7 +34,12 @@ export class IdleDetector {
         if (e.affectsConfiguration("timeTracking.idleThreshold")) {
           this.updateIdleThresholdFromConfig();
         }
-      })
+        if (
+          e.affectsConfiguration("timeTracking.autoDismissIdleNotification")
+        ) {
+          this.updateAutoDismissFromConfig();
+        }
+      }),
     );
   }
 
@@ -60,6 +68,21 @@ export class IdleDetector {
   }
 
   /**
+   * Sets the active notification that should be dismissed on activity
+   * @param notification The notification message item to dismiss
+   */
+  public setActiveNotification(notification: vscode.MessageItem): void {
+    this.activeNotification = notification;
+  }
+
+  /**
+   * Clears the active notification reference
+   */
+  public clearActiveNotification(): void {
+    this.activeNotification = undefined;
+  }
+
+  /**
    * Records user activity to reset the idle timer
    */
   public recordActivity(): void {
@@ -68,6 +91,13 @@ export class IdleDetector {
     // If user was previously idle and is now active again
     if (this.idleDetected) {
       this.idleDetected = false;
+
+      // Dismiss any active idle notification if it exists and auto-dismiss is enabled
+      if (this.activeNotification && this.autoDismissEnabled) {
+        vscode.commands.executeCommand("workbench.action.closeNotification");
+        this.clearActiveNotification();
+      }
+
       if (this.onUserReturned) {
         this.onUserReturned();
       }
@@ -80,7 +110,6 @@ export class IdleDetector {
   private checkIdleState(): void {
     const now = Date.now();
     const timeSinceLastActivity = now - this.lastActivity;
-
     // If idle threshold exceeded and we haven't already detected idle
     if (timeSinceLastActivity > this.idleThreshold && !this.idleDetected) {
       this.idleDetected = true;
@@ -116,6 +145,18 @@ export class IdleDetector {
   }
 
   /**
+   * Updates auto dismiss setting from extension configuration
+   */
+  private updateAutoDismissFromConfig(): void {
+    const config = vscode.workspace.getConfiguration("timeTracking");
+    const autoDismiss = config.get<boolean>("autoDismissIdleNotification");
+
+    if (autoDismiss !== undefined) {
+      this.autoDismissEnabled = autoDismiss;
+    }
+  }
+
+  /**
    * Registers all the activity events to monitor
    */
   private registerActivityEvents(): void {
@@ -123,7 +164,9 @@ export class IdleDetector {
     this.disposables.push(
       vscode.window.onDidChangeActiveTextEditor(() => this.recordActivity()),
       vscode.window.onDidChangeTextEditorSelection(() => this.recordActivity()),
-      vscode.window.onDidChangeTextEditorVisibleRanges(() => this.recordActivity()),
+      vscode.window.onDidChangeTextEditorVisibleRanges(() =>
+        this.recordActivity(),
+      ),
 
       // Document events
       vscode.workspace.onDidChangeTextDocument(() => this.recordActivity()),
@@ -133,7 +176,7 @@ export class IdleDetector {
       vscode.window.onDidOpenTerminal(() => this.recordActivity()),
 
       // Other UI events
-      vscode.window.onDidChangeWindowState(() => this.recordActivity())
+      vscode.window.onDidChangeWindowState(() => this.recordActivity()),
     );
   }
 
@@ -142,7 +185,7 @@ export class IdleDetector {
    */
   public dispose(): void {
     this.stopMonitoring();
-    this.disposables.forEach(d => d.dispose());
+    this.disposables.forEach((d) => d.dispose());
     this.disposables = [];
   }
 }
