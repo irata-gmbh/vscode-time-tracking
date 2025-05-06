@@ -5,6 +5,7 @@
   "version": "0.0.7",
   "publisher": "irataGmbH",
   "license": "MIT",
+  "icon": "icons/icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/your-github-username/vscode-time-tracking"
