@@ -19,6 +19,8 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - Improved data persistence and reliability with human-readable CSV format
 - GitHub Actions workflow for automated testing and publishing to VS Code Marketplace
 - VSIX artifact creation and attaching to GitHub releases
+- Improved report view with collapsible sections for file edits grouped by project and file path
+- Added visual grouping of file activities using HTML details/summary elements for better organization
 
 ### Changed
 - Modified tracking to begin at the workspace level even without an active file
@@ -27,6 +29,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - Updated internal architecture to support CSV file operations
 - Added publisher field to package.json for marketplace publishing
 - Improved report view to display auto-refresh status
+- Enhanced the report view UI with collapsible file activity groups showing total time in the summary 
 
 ## [0.0.1]
 

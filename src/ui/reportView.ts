@@ -224,6 +224,34 @@ export class ReportViewProvider implements vscode.WebviewViewProvider {
                     opacity: 0.7;
                     margin-top: 5px;
                 }
+                details {
+                    margin: 0;
+                    border: none;
+                }
+                summary {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 8px;
+                    cursor: pointer;
+                    background-color: var(--vscode-list-activeSelectionBackground);
+                    color: var(--vscode-list-activeSelectionForeground);
+                    border-radius: 3px;
+                    transition: background-color 0.2s;
+                }
+                summary:hover {
+                    background-color: var(--vscode-list-hoverBackground);
+                }
+                details[open] > summary {
+                    border-bottom-left-radius: 0;
+                    border-bottom-right-radius: 0;
+                }
+                details > table {
+                    border-top: none;
+                    border-top-left-radius: 0;
+                    border-top-right-radius: 0;
+                    background-color: var(--vscode-editor-inactiveSelectionBackground);
+                }
             </style>
         </head>
         <body>
@@ -264,6 +292,13 @@ export class ReportViewProvider implements vscode.WebviewViewProvider {
                 const vscode = acquireVsCodeApi();
                 document.getElementById('refreshButton').addEventListener('click', () => {
                     vscode.postMessage({ command: 'refresh' });
+                });
+                
+                // Add toggle behavior for all details elements
+                document.querySelectorAll('details').forEach(details => {
+                    details.addEventListener('toggle', () => {
+                        // Persist the open state if needed in the future
+                    });
                 });
             </script>
         </body>
@@ -353,28 +388,82 @@ export class ReportViewProvider implements vscode.WebviewViewProvider {
                     <table>
                         <thead>
                             <tr>
-                                <th>File</th>
-                                <th>Project</th>
+                                <th>Project / File</th>
                                 <th>Duration</th>
                             </tr>
                         </thead>
                         <tbody>
             `;
 
-      // Sort sessions by duration (descending)
-      const sortedSessions = [...sessions].sort(
-        (a, b) => b.duration - a.duration,
-      );
-
-      sortedSessions.forEach((session) => {
-        activityHtml += `
-                    <tr>
-                        <td>${session.fileName}</td>
-                        <td>${session.project}</td>
-                        <td>${formatDuration(session.duration)}</td>
-                    </tr>
-                `;
+      // Group sessions by project and file path (but display only project and filename)
+      const projectFileGroups: Record<string, TimeSession[]> = {};
+      sessions.forEach((session) => {
+        // Create a unique key combining project and filePath (for grouping)
+        const groupKey = `${session.project}:${session.filePath}`;
+        if (!projectFileGroups[groupKey]) {
+          projectFileGroups[groupKey] = [];
+        }
+        projectFileGroups[groupKey].push(session);
       });
+
+      // Sort groups by total duration (descending)
+      const sortedGroups = Object.entries(projectFileGroups)
+        .map(([groupKey, groupSessions]) => {
+          const [project, filePath] = groupKey.split(":", 2); // Split only first colon to handle file paths with colons
+          const fileName = filePath.split(/[\\/]/).pop() || "Untitled"; // Extract just the file name for display
+
+          const totalDuration = groupSessions.reduce(
+            (sum, session) => sum + session.duration,
+            0,
+          );
+
+          return { project, fileName, filePath, groupSessions, totalDuration };
+        })
+        .sort((a, b) => b.totalDuration - a.totalDuration);
+
+      sortedGroups.forEach(
+        ({ project, fileName, filePath, groupSessions, totalDuration }) => {
+          activityHtml += `
+          <tr>
+            <td colspan="2" style="padding: 0">
+              <details>
+                <summary style="padding: 6px; display: flex; justify-content: space-between; cursor: pointer;">
+                  <span>${project} / ${fileName}</span>
+                  <strong>${formatDuration(totalDuration)}</strong>
+                </summary>
+                <table style="width: 100%; margin: 0; background-color: var(--vscode-editor-inactiveSelectionBackground);">
+                  <tbody>
+        `;
+
+          // Sort sessions by duration (descending)
+          const sortedSessions = [...groupSessions].sort(
+            (a, b) => b.duration - a.duration,
+          );
+
+          sortedSessions.forEach((session) => {
+            // Format the start time to show in the details
+            const startTime = new Date(session.startTime).toLocaleTimeString();
+            const endTimeStr = session.endTime
+              ? new Date(session.endTime).toLocaleTimeString()
+              : "ongoing";
+
+            activityHtml += `
+            <tr>
+              <td style="width: 70%">${startTime} - ${endTimeStr}</td>
+              <td style="width: 30%">${formatDuration(session.duration)}</td>
+            </tr>
+          `;
+          });
+
+          activityHtml += `
+                  </tbody>
+                </table>
+              </details>
+            </td>
+          </tr>
+        `;
+        },
+      );
 
       activityHtml += `
                         </tbody>
