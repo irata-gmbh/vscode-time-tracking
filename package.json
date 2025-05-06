@@ -104,6 +104,16 @@
           "default": 10,
           "minimum": 1,
           "description": "Time in seconds between automatic refreshes of the report view"
+        },
+        "timeTracking.webhookUrl": {
+          "type": "string",
+          "default": "",
+          "description": "URL to send webhooks with time tracking events (Standard Webhooks format)"
+        },
+        "timeTracking.webhookSecret": {
+          "type": "string",
+          "default": "",
+          "description": "Secret for signing webhook payloads (Standard Webhooks format)"
         }
       }
     }

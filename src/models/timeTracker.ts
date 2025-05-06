@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { DatabaseService } from "../services/databaseService";
+import { WebhookService } from "../services/webhookService";
 import { getCurrentProjectName } from "../utils/projectUtils";
 
 /**
@@ -27,6 +28,7 @@ export class TimeTrackerModel {
   private timer: NodeJS.Timeout | undefined;
   private updateInterval = 1000; // Update interval in ms
   private dbService!: DatabaseService;
+  private webhookService: WebhookService;
 
   constructor(private context: vscode.ExtensionContext) {
     // Initialize the database service
@@ -41,6 +43,9 @@ export class TimeTrackerModel {
       // Fallback to empty sessions array if database fails
       this.sessions = [];
     }
+
+    // Initialize the webhook service
+    this.webhookService = new WebhookService();
 
     // Register extension deactivation handler to close database
     context.subscriptions.push({
@@ -204,6 +209,9 @@ export class TimeTrackerModel {
       // Save to database
       try {
         this.dbService.saveSession(this.currentSession);
+
+        // Send webhook notification for the completed session
+        this.webhookService.sendSessionEvent(this.currentSession);
       } catch (error) {
         vscode.window.showErrorMessage(
           `Failed to save time tracking session: ${error instanceof Error ? error.message : String(error)}`,

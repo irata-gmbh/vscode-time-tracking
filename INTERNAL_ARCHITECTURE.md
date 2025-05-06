@@ -8,14 +8,16 @@ The extension is built with a modular architecture consisting of several key com
 
 1. **TimeTrackerModel**: Core data model for tracking sessions
 2. **DatabaseService**: Service for CSV file operations
-3. **StatusBarController**: UI controller for the status bar display
-4. **ReportViewProvider**: WebView provider for displaying time reports
-5. **IdleDetector**: Utility for detecting user inactivity
-6. **ProjectUtils**: Utility for detecting project names from project files
+3. **WebhookService**: Service for sending webhook notifications
+4. **StatusBarController**: UI controller for the status bar display
+5. **ReportViewProvider**: WebView provider for displaying time reports
+6. **IdleDetector**: Utility for detecting user inactivity
+7. **ProjectUtils**: Utility for detecting project names from project files
 
 ```mermaid
 graph TD
     A[VS Code Events] <--> B[TimeTrackerModel] <--> C[DatabaseService] <--> D[CSV File]
+    B <--> K[WebhookService] --> L[External Services]
     A --> E[IdleDetector]
     B --> F[StatusBarController]
     F --> G[ReportViewProvider]
@@ -148,6 +150,51 @@ Helper functions for time-related operations:
 - `groupSessionsByDay()`: Groups sessions by their start date
 - `groupSessionsByProject()`: Groups sessions by project name
 
+### WebhookService
+
+**File:** `src/services/webhookService.ts`
+
+The `WebhookService` provides integration with external services via webhooks:
+
+- **Standard Webhooks Implementation**: Follows the [Standard Webhooks specification](https://www.standardwebhooks.com/)
+- **Conditional Execution**: Only sends webhooks when a webhook URL is configured
+- **Security**: Signs webhook payloads using HMAC SHA-256 when a webhook secret is provided
+- **Configuration Management**: Automatically updates when webhook settings change
+- **Event Format**: Sends well-structured events with detailed session information
+- **Error Handling**: Non-blocking operation that won't interfere with normal extension usage
+
+**Event Structure:**
+```json
+{
+  "id": "uuid-generated-for-event",
+  "timestamp": "2025-05-06T14:30:00.000Z",
+  "type": "time.session.completed",
+  "data": {
+    "sessionId": "session-id",
+    "fileName": "example.ts",
+    "filePath": "/path/to/example.ts",
+    "project": "project-name",
+    "startTime": "2025-05-06T14:00:00.000Z",
+    "endTime": "2025-05-06T14:30:00.000Z",
+    "duration": 1800000,
+    "category": "Coding",
+    "notes": "Working on feature X"
+  }
+}
+```
+
+**Header Implementation:**
+- `Content-Type`: "application/json"
+- `User-Agent`: "vscode-time-tracking/standardwebhooks"
+- `Webhook-Id`: UUID for event identification
+- `Webhook-Timestamp`: ISO 8601 timestamp of the event
+- `Webhook-Signature`: HMAC SHA-256 signature when secret is provided
+
+**Key Methods:**
+- `sendSessionEvent()`: Sends a webhook for a completed time tracking session
+- `generateSignature()`: Creates HMAC SHA-256 signature for payload security
+- `loadConfiguration()`: Loads webhook settings from VS Code configuration
+
 ## Extension Configuration
 
 The extension supports these configuration settings:
@@ -155,6 +202,9 @@ The extension supports these configuration settings:
 - `timeTracking.autoTrack`: Whether to start tracking automatically when a file is opened
 - `timeTracking.idleThreshold`: Time in seconds before considering the user idle
 - `timeTracking.csvFilePath`: Path to the CSV file (default: `~/time-tracking.csv`)
+- `timeTracking.reportRefreshInterval`: Time between report view refreshes in seconds
+- `timeTracking.webhookUrl`: URL to send webhooks with time tracking events
+- `timeTracking.webhookSecret`: Secret for signing webhook payloads
 
 ## Storage Strategy
 
@@ -232,6 +282,16 @@ The extension registers the following commands:
 2. User is prompted to continue or stop tracking
 3. If "Stop Tracking" is chosen, tracking is ended and saved
 
+**When a session is completed:**
+
+1. `TimeTrackerModel.endCurrentSession()` is called
+2. The session is saved to the database via `DatabaseService.saveSession()`
+3. If webhookUrl is configured, `WebhookService.sendSessionEvent()` is called
+4. The webhook service prepares the event data and headers according to the Standard Webhooks spec
+5. If webhookSecret is configured, the payload is signed using HMAC SHA-256
+6. The webhook is sent to the configured URL with appropriate headers and payload
+7. Any webhook errors are logged but don't interrupt the extension's operation
+
 ## Advanced Features
 
 ### Multiple Project Support
@@ -245,6 +305,21 @@ Users can add categories to their tracking sessions to better organize their tim
 ### Session Notes
 
 Notes can be added to any active session to provide context about the work being done. These notes are stored with the session data and displayed in reports.
+
+### Webhook Integration
+
+The extension supports sending time tracking data to external services using webhooks:
+
+- **Standard Compliance**: Implements the [Standard Webhooks specification](https://www.standardwebhooks.com/)
+- **Security**: Supports HMAC SHA-256 payload signing for webhook security
+- **Configurable**: Webhook URL and secret can be configured in VS Code settings
+- **Event Types**: Currently supports the `time.session.completed` event type
+- **Complete Data**: Sends complete session data including project, duration, category, and notes
+
+**Implementation Notes:**
+- Webhooks are sent asynchronously to avoid blocking the UI
+- Error handling ensures that webhook failures don't affect core extension functionality
+- The webhook functionality is inactive when no URL is configured
 
 ## CI/CD Pipeline
 
@@ -309,3 +384,4 @@ The workflow can also be manually triggered from the GitHub Actions tab for test
 4. **Task Integration**: Link tracking sessions with tasks from issue trackers
 5. **Automatic Categorization**: Use AI to suggest categories based on file content
 6. **Data Backup**: Add functionality to backup and restore the CSV data
+7. **Webhook Enhancements**: Add support for additional webhook event types and retry mechanisms

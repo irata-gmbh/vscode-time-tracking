@@ -21,6 +21,10 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - VSIX artifact creation and attaching to GitHub releases
 - Improved report view with collapsible sections for file edits grouped by project and file path
 - Added visual grouping of file activities using HTML details/summary elements for better organization
+- Standard Webhooks integration for sending time tracking data to external services
+- Added `timeTracking.webhookUrl` setting to configure webhook endpoint
+- Added `timeTracking.webhookSecret` setting for secure webhook payload signing
+- Implementation of the Standard Webhooks specification including proper headers and signatures
 
 ### Changed
 - Modified tracking to begin at the workspace level even without an active file

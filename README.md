@@ -15,6 +15,7 @@ Track time spent on different tasks, projects, and files within Visual Studio Co
 - **Status Bar Integration**: Shows current tracking status and elapsed time in the status bar
 - **CSV Storage**: Stores time tracking data in a CSV file for simple, human-readable data persistence
 - **Workspace-Level Tracking**: Tracks time at workspace level even when no file is open
+- **Standard Webhooks Integration**: Send time tracking data to external services using Standard Webhooks format
 
 ## Usage
 
@@ -43,6 +44,20 @@ Track time spent on different tasks, projects, and files within Visual Studio Co
 2. View summaries of your time spent on different projects and files
 3. Click "Refresh Data" to update the reports with the latest tracking information
 
+### Using Webhooks
+
+To integrate your time tracking data with external services:
+
+1. Go to VS Code Settings
+2. Set `timeTracking.webhookUrl` to your webhook endpoint URL
+3. Optionally set `timeTracking.webhookSecret` for secure payload signing
+4. Time tracking data will be sent to the configured URL when sessions end
+
+When configured, the extension will send webhooks in [Standard Webhooks](https://www.standardwebhooks.com/) format with the following:
+- Event type: `time.session.completed`
+- Secure signatures using HMAC SHA-256 (when secret is configured)
+- Complete session details including project, duration, category, and notes
+
 ## Extension Settings
 
 This extension contributes the following settings:
@@ -51,6 +66,8 @@ This extension contributes the following settings:
 * `timeTracking.idleThreshold`: Time in seconds before considering the user idle (default: `300`)
 * `timeTracking.csvFilePath`: Path to the CSV file for storing time tracking data (default: `~/time-tracking.csv`)
 * `timeTracking.reportRefreshInterval`: Time in seconds between automatic refreshes of the report view (default: `10`)
+* `timeTracking.webhookUrl`: URL to send webhooks with time tracking events (Standard Webhooks format)
+* `timeTracking.webhookSecret`: Secret for signing webhook payloads (Standard Webhooks format)
 
 ## Data Storage
 
