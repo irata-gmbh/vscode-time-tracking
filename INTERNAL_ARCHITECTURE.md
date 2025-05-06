@@ -215,6 +215,7 @@ The extension uses CSV files for data persistence:
 - The file path is configurable via the `timeTracking.csvFilePath` setting
 - Sessions are automatically saved to the file when they end
 - Each session is saved as a row in the CSV file
+- Only new records are appended to the file to maintain data integrity and performance
 
 ### CSV File Structure
 
@@ -227,6 +228,7 @@ id,fileName,filePath,project,startTime,endTime,duration,category,notes
 - Special characters in text fields are properly escaped following CSV standards
 - Date fields are stored in ISO format for easy parsing
 - Duration is stored in milliseconds as a number
+- The file is read before writing to ensure data consistency
 
 ### DatabaseService
 
@@ -239,14 +241,17 @@ The `DatabaseService` handles all CSV file operations:
 - **CRUD Operations**: Provides methods to save and load time tracking data
 - **Search & Analysis**: Offers specialized functions for statistics and reporting
 - **Path Resolution**: Handles path expansion for the `~` home directory symbol
+- **Data Protection**: Implements a backup strategy to prevent data loss during file writes
+- **Efficient Writing**: Appends new records without rewriting the entire file when possible
 
 **Key Methods:**
-- `saveSession()`: Saves a time tracking session to the CSV file
+- `saveSession()`: Saves a time tracking session to the CSV file, reading current data first
 - `loadSessions()`: Loads all sessions from the CSV file
 - `getCategoryStats()`: Calculates statistics about time spent per category
 - `getProjectTotalTime()`: Calculates total time spent on a specific project
 - `escapeCSV()`: Handles proper escaping of special characters in CSV fields
 - `parseCSVLine()`: Parses CSV lines accounting for quoted fields and escaped quotes
+- `saveAllSessions()`: Safely rewrites the entire file when updating existing records, with backup protection
 
 ## Command Registration
 

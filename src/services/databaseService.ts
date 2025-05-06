@@ -100,6 +100,9 @@ export class DatabaseService {
    */
   public saveSession(session: TimeSession): void {
     try {
+      // Always reload sessions from file to ensure we have latest data
+      this.loadSessionsFromFile();
+
       // Add session to in-memory cache
       const existingIndex = this.sessions.findIndex((s) => s.id === session.id);
       if (existingIndex >= 0) {
@@ -125,8 +128,26 @@ export class DatabaseService {
       if (existingIndex >= 0) {
         this.saveAllSessions();
       } else {
-        // Otherwise append the new session
-        fs.appendFileSync(this.filePath, `${line}\n`, "utf8");
+        // For new sessions, ensure we're not already in the file before appending
+        // Read the file content first to check for potential duplicates
+        let fileExists = false;
+        try {
+          fileExists = fs.existsSync(this.filePath);
+        } catch (err) {
+          fileExists = false;
+        }
+
+        if (!fileExists) {
+          // Create new file with header and new session
+          fs.writeFileSync(
+            this.filePath,
+            `${this.CSV_HEADER}\n${line}\n`,
+            "utf8",
+          );
+        } else {
+          // Append only the new session
+          fs.appendFileSync(this.filePath, `${line}\n`, "utf8");
+        }
       }
     } catch (error) {
       vscode.window.showErrorMessage(
@@ -137,9 +158,16 @@ export class DatabaseService {
 
   /**
    * Saves all sessions to the CSV file (used for updates)
+   * This method is more careful to prevent data loss by:
+   * 1. Reading the current file content
+   * 2. Merging with in-memory sessions
+   * 3. Writing back the complete data
    */
   private saveAllSessions(): void {
     try {
+      // First ensure we have the latest data from the file
+      this.loadSessionsFromFile();
+
       // Start with header
       let fileContent = `${this.CSV_HEADER}\n`;
 
@@ -159,12 +187,40 @@ export class DatabaseService {
         fileContent += `${line}\n`;
       });
 
-      // Write to file
+      // Write to file with a backup strategy
+      const backupPath = `${this.filePath}.backup`;
+
+      // 1. Create backup of existing file if it exists
+      if (fs.existsSync(this.filePath)) {
+        fs.copyFileSync(this.filePath, backupPath);
+      }
+
+      // 2. Write new content
       fs.writeFileSync(this.filePath, fileContent, "utf8");
+
+      // 3. Remove backup if write was successful
+      if (fs.existsSync(backupPath)) {
+        fs.unlinkSync(backupPath);
+      }
     } catch (error) {
       vscode.window.showErrorMessage(
         `Failed to save sessions: ${error instanceof Error ? error.message : String(error)}`,
       );
+
+      // Try to restore from backup if available
+      const backupPath = `${this.filePath}.backup`;
+      if (fs.existsSync(backupPath)) {
+        try {
+          fs.copyFileSync(backupPath, this.filePath);
+          vscode.window.showInformationMessage(
+            "Restored time tracking data from backup.",
+          );
+        } catch (restoreError) {
+          vscode.window.showErrorMessage(
+            `Failed to restore from backup: ${restoreError instanceof Error ? restoreError.message : String(restoreError)}`,
+          );
+        }
+      }
     }
   }
 

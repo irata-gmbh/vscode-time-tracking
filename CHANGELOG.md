@@ -6,6 +6,13 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+### Changed
+- Improved CSV file handling to maintain data integrity and performance
+- Enhanced `DatabaseService` to read files before writing to prevent data duplication
+- Added backup strategy for CSV files when updating existing records to prevent data loss
+- Optimized file operations by appending new records instead of rewriting entire file when possible
+- Updated documentation in INTERNAL_ARCHITECTURE.md to reflect database service improvements
+
 ## [0.0.8] - 2025-05-06
 
 ### Added
