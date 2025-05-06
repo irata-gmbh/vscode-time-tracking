@@ -6,6 +6,8 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.0.8] - 2025-05-06
+
 ### Added
 - Enhanced idle detection with automatic notification dismissal when activity resumes
 - Added `timeTracking.autoDismissIdleNotification` setting to control auto-dismissal of idle notifications (default: `true`)
