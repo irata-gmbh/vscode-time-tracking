@@ -11,6 +11,7 @@ The extension is built with a modular architecture consisting of several key com
 3. **StatusBarController**: UI controller for the status bar display
 4. **ReportViewProvider**: WebView provider for displaying time reports
 5. **IdleDetector**: Utility for detecting user inactivity
+6. **ProjectUtils**: Utility for detecting project names from project files
 
 ```mermaid
 graph TD
@@ -18,6 +19,8 @@ graph TD
     A --> E[IdleDetector]
     B --> F[StatusBarController]
     F --> G[ReportViewProvider]
+    H[ProjectUtils] --> B
+    H --> J[Project Files]
 ```
 
 ### Activation Process
@@ -30,6 +33,7 @@ When the extension activates:
 4. `IdleDetector` is set up to monitor user activity
 5. Commands like `startTracking`, `stopTracking`, etc. are registered
 6. The `ReportViewProvider` is registered to show time tracking reports
+7. If auto-tracking is enabled (default), tracking starts automatically for the workspace
 
 ## Core Components in Detail
 
@@ -40,6 +44,8 @@ When the extension activates:
 The `TimeTrackerModel` is the central data model handling all time tracking logic:
 
 - **Session Management**: Maintains a list of completed sessions and the current active session
+- **Workspace-Level Tracking**: Can track time at the workspace level even when no file is open
+- **Project Detection**: Uses `ProjectUtils` to intelligently determine project names
 - **Data Structure**: Each session contains:
   ```typescript
   interface TimeSession {
@@ -55,16 +61,34 @@ The `TimeTrackerModel` is the central data model handling all time tracking logi
   }
   ```
 - **Time Calculation**: Uses a timer (`setInterval`) to update the duration of the current session
-- **Storage**: Saves completed sessions to the extension's global state
+- **Storage**: Saves completed sessions to the CSV file via DatabaseService
 
 **Key Methods:**
-- `startTracking()`: Creates a new session for the current file
+- `startTracking()`: Creates a new session for the current workspace or file
 - `stopTracking()`: Ends the current session and saves it
 - `handleEditorChange()`: Switches tracking to a new file when the active editor changes
 - `getCurrentSession()`: Gets the active tracking session
 - `getSessions()`: Returns all completed sessions
-- `saveSessions()`: Persists sessions to VS Code storage
-- `loadSessions()`: Loads sessions from storage
+
+### Project Utils
+
+**File:** `src/utils/projectUtils.ts`
+
+The `ProjectUtils` module provides intelligent project name detection:
+
+- **Project File Detection**: Scans workspace for common project definition files
+- **Supported Project Files**:
+  - package.json (Node.js/JavaScript projects)
+  - composer.json (PHP projects)
+  - .git/config (Git repositories)
+  - pubspec.yaml (Flutter/Dart projects)
+  - pyproject.toml (Python projects)
+  - setup.py (Python projects)
+- **Fallback Strategy**: Uses directory name when no project files are found
+
+**Key Methods:**
+- `detectProjectName()`: Examines workspace folder to find best project name
+- `getCurrentProjectName()`: Gets project name from active editor or first workspace
 
 ### Idle Detection Logic
 

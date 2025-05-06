@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { DatabaseService } from "../services/databaseService";
+import { getCurrentProjectName } from "../utils/projectUtils";
 
 /**
  * Represents a time tracking session
@@ -50,22 +51,22 @@ export class TimeTrackerModel {
   }
 
   /**
-   * Starts tracking time for the current file
+   * Starts tracking time for the current workspace or file
    */
-  public startTracking(): void {
+  public async startTracking(): Promise<void> {
     const editor = vscode.window.activeTextEditor;
+    let fileName = "No Active File";
+    let filePath = "";
 
-    if (!editor) {
-      vscode.window.showWarningMessage("No active editor to track time for.");
-      return;
+    // Get project name regardless of whether there's an open file
+    const project = await getCurrentProjectName();
+
+    // If an editor is active, use its file information
+    if (editor) {
+      filePath = editor.document.uri.fsPath;
+      fileName = filePath.split(/[\\/]/).pop() || "Untitled";
+      this.lastActiveFile = filePath;
     }
-
-    const filePath = editor.document.uri.fsPath;
-    const fileName = filePath.split(/[\\/]/).pop() || "";
-    const workspaceFolder = vscode.workspace.getWorkspaceFolder(
-      editor.document.uri,
-    );
-    const project = workspaceFolder ? workspaceFolder.name : "No Project";
 
     // End current session if exists
     this.endCurrentSession();
@@ -79,8 +80,6 @@ export class TimeTrackerModel {
       startTime: new Date(),
       duration: 0,
     };
-
-    this.lastActiveFile = filePath;
 
     // Start timer to update duration
     this.timer = setInterval(
@@ -101,10 +100,10 @@ export class TimeTrackerModel {
   /**
    * Updates the tracking when the active editor changes
    */
-  public handleEditorChange(): void {
+  public async handleEditorChange(): Promise<void> {
     const editor = vscode.window.activeTextEditor;
 
-    // If no editor is active, continue tracking the last file
+    // If no editor is active, continue tracking the current project
     if (!editor) {
       return;
     }
@@ -114,7 +113,7 @@ export class TimeTrackerModel {
     // If the file changed, end current session and start a new one
     if (this.isTracking() && this.lastActiveFile !== currentFilePath) {
       this.endCurrentSession();
-      this.startTracking();
+      await this.startTracking();
     }
   }
 

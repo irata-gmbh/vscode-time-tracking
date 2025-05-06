@@ -4,7 +4,8 @@ Track time spent on different tasks, projects, and files within Visual Studio Co
 
 ## Features
 
-- **Automatic Time Tracking**: Tracks time spent on different files and projects
+- **Automatic Time Tracking**: Tracks time spent on different files and projects automatically when a workspace is opened
+- **Smart Project Detection**: Intelligently determines project names from project files or directory names
 - **Manual Control**: Start, stop, or toggle time tracking with simple commands
 - **Activity View**: Visualizes your time data in an easy-to-understand report view
 - **Auto-Refreshing Reports**: Report view automatically refreshes at configurable intervals
@@ -13,24 +14,26 @@ Track time spent on different tasks, projects, and files within Visual Studio Co
 - **Project Statistics**: See time spent per project and per category
 - **Status Bar Integration**: Shows current tracking status and elapsed time in the status bar
 - **CSV Storage**: Stores time tracking data in a CSV file for simple, human-readable data persistence
+- **Workspace-Level Tracking**: Tracks time at workspace level even when no file is open
 
 ## Usage
 
 ### Starting and Stopping Time Tracking
 
+- Time tracking starts automatically when a workspace is opened
 - Click the timer icon in the status bar to toggle tracking
 - Run the command "Start Time Tracking" from the command palette
 - Run the command "Stop Time Tracking" from the command palette
 
 ### Categorizing Time
 
-1. Start time tracking on a file
+1. Time tracking will already be active when you open a workspace
 2. Run the command "Time Tracking: Add Category"
 3. Select a category from the dropdown list
 
 ### Adding Notes to Sessions
 
-1. Start time tracking on a file
+1. With active time tracking
 2. Run the command "Time Tracking: Add Notes"
 3. Enter your notes in the input field
 
@@ -44,8 +47,8 @@ Track time spent on different tasks, projects, and files within Visual Studio Co
 
 This extension contributes the following settings:
 
-* `timeTracking.autoTrack`: Enable/disable automatic time tracking when a file is opened
-* `timeTracking.idleThreshold`: Time in seconds before considering the user idle
+* `timeTracking.autoTrack`: Enable/disable automatic time tracking when a workspace is opened (default: `true`)
+* `timeTracking.idleThreshold`: Time in seconds before considering the user idle (default: `300`)
 * `timeTracking.csvFilePath`: Path to the CSV file for storing time tracking data (default: `~/time-tracking.csv`)
 * `timeTracking.reportRefreshInterval`: Time in seconds between automatic refreshes of the report view (default: `10`)
 

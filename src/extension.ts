@@ -53,12 +53,33 @@ export function activate(context: vscode.ExtensionContext) {
   // Add the idleDetector to context subscriptions for proper cleanup
   context.subscriptions.push(idleDetector);
 
-  // Start idle detection when auto-track is enabled
+  // Start idle detection and tracking by default if workspace is present
   const autoTrack = vscode.workspace
     .getConfiguration("timeTracking")
     .get("autoTrack", true);
+
   if (autoTrack) {
     idleDetector.startMonitoring();
+
+    // Only auto-start tracking if there's at least one workspace folder
+    if (
+      vscode.workspace.workspaceFolders &&
+      vscode.workspace.workspaceFolders.length > 0
+    ) {
+      // Start tracking asynchronously
+      setTimeout(async () => {
+        await timeTracker.startTracking();
+        statusBarController.startTimer();
+        vscode.commands.executeCommand(
+          "setContext",
+          "timeTracking.isTracking",
+          true,
+        );
+        vscode.window.showInformationMessage(
+          "Time tracking started automatically for the current project.",
+        );
+      }, 1000); // Small delay to ensure everything is initialized
+    }
   }
 
   // Watch for configuration changes
@@ -69,11 +90,75 @@ export function activate(context: vscode.ExtensionContext) {
           .getConfiguration("timeTracking")
           .get("autoTrack", true);
 
-        if (autoTrackEnabled && timeTracker.isTracking()) {
+        if (
+          autoTrackEnabled &&
+          !timeTracker.isTracking() &&
+          vscode.workspace.workspaceFolders &&
+          vscode.workspace.workspaceFolders.length > 0
+        ) {
+          // Start tracking if auto-track was enabled and there's a workspace
+          timeTracker.startTracking();
+          statusBarController.startTimer();
           idleDetector.startMonitoring();
-        } else if (!autoTrackEnabled) {
+          vscode.commands.executeCommand(
+            "setContext",
+            "timeTracking.isTracking",
+            true,
+          );
+        } else if (!autoTrackEnabled && timeTracker.isTracking()) {
+          // Stop tracking if auto-track was disabled
+          timeTracker.stopTracking();
+          statusBarController.stopTimer();
           idleDetector.stopMonitoring();
+          vscode.commands.executeCommand(
+            "setContext",
+            "timeTracking.isTracking",
+            false,
+          );
         }
+      }
+    }),
+  );
+
+  // Watch for workspace folders change
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeWorkspaceFolders(async (event) => {
+      // If folders were added and auto-track is enabled and not already tracking
+      if (
+        event.added.length > 0 &&
+        vscode.workspace
+          .getConfiguration("timeTracking")
+          .get("autoTrack", true) &&
+        !timeTracker.isTracking()
+      ) {
+        await timeTracker.startTracking();
+        statusBarController.startTimer();
+        idleDetector.startMonitoring();
+        vscode.commands.executeCommand(
+          "setContext",
+          "timeTracking.isTracking",
+          true,
+        );
+        vscode.window.showInformationMessage(
+          "Time tracking started for the new workspace.",
+        );
+      }
+      // If all folders were removed and was tracking
+      else if (
+        (!vscode.workspace.workspaceFolders ||
+          vscode.workspace.workspaceFolders.length === 0) &&
+        timeTracker.isTracking()
+      ) {
+        timeTracker.stopTracking();
+        statusBarController.stopTimer();
+        vscode.commands.executeCommand(
+          "setContext",
+          "timeTracking.isTracking",
+          false,
+        );
+        vscode.window.showInformationMessage(
+          "Time tracking stopped as all workspaces were closed.",
+        );
       }
     }),
   );
@@ -96,8 +181,8 @@ export function activate(context: vscode.ExtensionContext) {
   // Register commands
   const startTrackingCommand = vscode.commands.registerCommand(
     "time-tracking.startTracking",
-    () => {
-      timeTracker.startTracking();
+    async () => {
+      await timeTracker.startTracking();
       statusBarController.startTimer();
       // When tracking starts, make sure idle detection is active
       idleDetector.startMonitoring();
