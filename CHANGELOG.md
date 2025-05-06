@@ -6,6 +6,8 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.0.8] - 2025-05-09
+
 ### Changed
 - Improved CSV file handling to maintain data integrity and performance
 - Enhanced `DatabaseService` to read files before writing to prevent data duplication
