@@ -6,6 +6,8 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.0.7] - 2025-05-06
+
 ### Added
 - Workspace-level tracking that works without requiring an open file
 - Smart project name detection from project files (package.json, composer.json, .git/config, etc.)

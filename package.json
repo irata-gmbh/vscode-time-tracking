@@ -2,7 +2,7 @@
   "name": "time-tracking",
   "displayName": "Time Tracking",
   "description": "Tracks time spent on different tasks in VS Code and keeps the data on your local machine.",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "publisher": "irataGmbH",
   "license": "MIT",
   "repository": {
