@@ -98,6 +98,12 @@
           "type": "string",
           "default": "~/time-tracking.csv",
           "description": "Path to the CSV file for storing time tracking data"
+        },
+        "timeTracking.reportRefreshInterval": {
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "description": "Time in seconds between automatic refreshes of the report view"
         }
       }
     }

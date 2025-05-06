@@ -44,34 +44,38 @@ export function activate(context: vscode.ExtensionContext) {
       // When user returns from idle state and tracking is active
       if (timeTracker.isTracking()) {
         vscode.window.showInformationMessage(
-          "Welcome back! Time tracking has continued."
+          "Welcome back! Time tracking has continued.",
         );
       }
-    }
+    },
   );
-  
+
   // Add the idleDetector to context subscriptions for proper cleanup
   context.subscriptions.push(idleDetector);
 
   // Start idle detection when auto-track is enabled
-  const autoTrack = vscode.workspace.getConfiguration("timeTracking").get("autoTrack", true);
+  const autoTrack = vscode.workspace
+    .getConfiguration("timeTracking")
+    .get("autoTrack", true);
   if (autoTrack) {
     idleDetector.startMonitoring();
   }
 
   // Watch for configuration changes
   context.subscriptions.push(
-    vscode.workspace.onDidChangeConfiguration(e => {
+    vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("timeTracking.autoTrack")) {
-        const autoTrackEnabled = vscode.workspace.getConfiguration("timeTracking").get("autoTrack", true);
-        
+        const autoTrackEnabled = vscode.workspace
+          .getConfiguration("timeTracking")
+          .get("autoTrack", true);
+
         if (autoTrackEnabled && timeTracker.isTracking()) {
           idleDetector.startMonitoring();
         } else if (!autoTrackEnabled) {
           idleDetector.stopMonitoring();
         }
       }
-    })
+    }),
   );
 
   // Register the report view provider
@@ -79,7 +83,10 @@ export function activate(context: vscode.ExtensionContext) {
     context.extensionUri,
     timeTracker,
   );
+
+  // Add the provider instance to subscriptions so its dispose() method is called
   context.subscriptions.push(
+    reportViewProvider,
     vscode.window.registerWebviewViewProvider(
       ReportViewProvider.viewType,
       reportViewProvider,

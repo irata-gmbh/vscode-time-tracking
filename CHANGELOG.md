@@ -7,6 +7,8 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 ## [Unreleased]
 
 ### Added
+- Automatic refresh for report webview based on configurable interval
+- Added `timeTracking.reportRefreshInterval` setting to control refresh frequency (default: 10 seconds)
 - CSV file storage for time tracking data
 - Added `timeTracking.csvFilePath` setting to configure CSV file location (default: `~/time-tracking.csv`)
 - Improved data persistence and reliability with human-readable CSV format
@@ -17,6 +19,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - Migrated from VS Code global state storage to CSV file for better performance
 - Updated internal architecture to support CSV file operations
 - Added publisher field to package.json for marketplace publishing
+- Improved report view to display auto-refresh status
 
 ## [0.0.1]
 

@@ -7,6 +7,7 @@ Track time spent on different tasks, projects, and files within Visual Studio Co
 - **Automatic Time Tracking**: Tracks time spent on different files and projects
 - **Manual Control**: Start, stop, or toggle time tracking with simple commands
 - **Activity View**: Visualizes your time data in an easy-to-understand report view
+- **Auto-Refreshing Reports**: Report view automatically refreshes at configurable intervals
 - **Categorization**: Add categories to your time sessions for better organization
 - **Session Notes**: Attach notes to your time tracking sessions for later reference
 - **Project Statistics**: See time spent per project and per category
@@ -46,6 +47,7 @@ This extension contributes the following settings:
 * `timeTracking.autoTrack`: Enable/disable automatic time tracking when a file is opened
 * `timeTracking.idleThreshold`: Time in seconds before considering the user idle
 * `timeTracking.csvFilePath`: Path to the CSV file for storing time tracking data (default: `~/time-tracking.csv`)
+* `timeTracking.reportRefreshInterval`: Time in seconds between automatic refreshes of the report view (default: `10`)
 
 ## Data Storage
 

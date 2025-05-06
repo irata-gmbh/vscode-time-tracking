@@ -1,4 +1,4 @@
-import type * as vscode from "vscode";
+import * as vscode from "vscode";
 import type { TimeSession, TimeTrackerModel } from "../models/timeTracker";
 import {
   formatDate,
@@ -12,11 +12,35 @@ import {
  */
 export class ReportViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "timeTracking.reportView";
+  private refreshTimer: NodeJS.Timeout | undefined;
+  private webviewView: vscode.WebviewView | undefined;
+  private disposables: vscode.Disposable[] = [];
 
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly timeTracker: TimeTrackerModel,
-  ) {}
+  ) {
+    // Listen for configuration changes
+    this.disposables.push(
+      vscode.workspace.onDidChangeConfiguration((e) => {
+        if (e.affectsConfiguration("timeTracking.reportRefreshInterval")) {
+          // Restart the auto-refresh timer with the new interval
+          if (this.webviewView?.visible) {
+            this.startAutoRefresh();
+          }
+        }
+      }),
+    );
+  }
+
+  /**
+   * Disposes of all resources
+   */
+  public dispose(): void {
+    this.stopAutoRefresh();
+    this.disposables.forEach((d) => d.dispose());
+    this.disposables = [];
+  }
 
   /**
    * Resolves the webview view
@@ -26,6 +50,8 @@ export class ReportViewProvider implements vscode.WebviewViewProvider {
     context: vscode.WebviewViewResolveContext,
     token: vscode.CancellationToken,
   ): void | Thenable<void> {
+    this.webviewView = webviewView;
+
     webviewView.webview.options = {
       enableScripts: true,
       localResourceRoots: [this.extensionUri],
@@ -49,6 +75,58 @@ export class ReportViewProvider implements vscode.WebviewViewProvider {
           break;
       }
     });
+
+    // Start auto-refresh timer
+    this.startAutoRefresh();
+
+    // When the webview is hidden, stop the auto refresh
+    webviewView.onDidChangeVisibility(() => {
+      if (webviewView.visible) {
+        this.startAutoRefresh();
+      } else {
+        this.stopAutoRefresh();
+      }
+    });
+
+    // When the webview is disposed, stop the auto refresh
+    webviewView.onDidDispose(() => {
+      this.stopAutoRefresh();
+    });
+  }
+
+  /**
+   * Starts the auto-refresh timer
+   */
+  private startAutoRefresh(): void {
+    // Stop any existing timer first
+    this.stopAutoRefresh();
+
+    // Get the refresh interval from configuration (in seconds)
+    const config = vscode.workspace.getConfiguration("timeTracking");
+    const refreshIntervalSeconds = config.get<number>(
+      "reportRefreshInterval",
+      10,
+    );
+    const refreshInterval = refreshIntervalSeconds * 1000; // Convert to milliseconds
+
+    // Start new timer
+    this.refreshTimer = setInterval(() => {
+      if (this.webviewView?.visible) {
+        this.webviewView.webview.html = this.getHtmlForWebview(
+          this.webviewView.webview,
+        );
+      }
+    }, refreshInterval);
+  }
+
+  /**
+   * Stops the auto-refresh timer
+   */
+  private stopAutoRefresh(): void {
+    if (this.refreshTimer) {
+      clearInterval(this.refreshTimer);
+      this.refreshTimer = undefined;
+    }
   }
 
   /**
@@ -63,6 +141,13 @@ export class ReportViewProvider implements vscode.WebviewViewProvider {
     const totalTime = sessions.reduce(
       (sum, session) => sum + session.duration,
       0,
+    );
+
+    // Get the refresh interval for display
+    const config = vscode.workspace.getConfiguration("timeTracking");
+    const refreshIntervalSeconds = config.get<number>(
+      "reportRefreshInterval",
+      10,
     );
 
     // Generate HTML for report
@@ -133,6 +218,12 @@ export class ReportViewProvider implements vscode.WebviewViewProvider {
                     font-style: italic;
                     opacity: 0.7;
                 }
+                .auto-refresh-info {
+                    text-align: center;
+                    font-size: 12px;
+                    opacity: 0.7;
+                    margin-top: 5px;
+                }
             </style>
         </head>
         <body>
@@ -166,6 +257,7 @@ export class ReportViewProvider implements vscode.WebviewViewProvider {
             
             <div style="text-align: center; margin-top: 20px;">
                 <button id="refreshButton">Refresh Data</button>
+                <div class="auto-refresh-info">Auto-refreshes every ${refreshIntervalSeconds} seconds</div>
             </div>
             
             <script>
