@@ -1,5 +1,8 @@
 // The module 'vscode' contains the VS Code extensibility API
 import * as vscode from "vscode";
+import * as path from "node:path";
+import * as os from "node:os";
+import * as fs from "node:fs";
 import { TimeTrackerModel } from "./models/timeTracker";
 import { ReportViewProvider } from "./ui/reportView";
 import { StatusBarController } from "./ui/statusBarController";
@@ -59,6 +62,43 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Add the idleDetector to context subscriptions for proper cleanup
   context.subscriptions.push(idleDetector);
+
+  // Check if data migration from single CSV to per-day CSVs is needed
+  const hasMigrated = context.globalState.get<boolean>(
+    "hasMigratedToPerDayStorage",
+  );
+  if (!hasMigrated) {
+    // Check if old CSV file exists
+    const configPath = vscode.workspace
+      .getConfiguration("timeTracking")
+      .get<string>("csvFilePath", "~/time-tracking.csv");
+
+    // Expand home directory if path starts with ~
+    let oldFilePath = configPath;
+    if (configPath.startsWith("~/")) {
+      oldFilePath = path.join(os.homedir(), configPath.substring(2));
+    }
+
+    // If old file exists and looks like a single file (not a directory)
+    if (fs.existsSync(oldFilePath) && fs.statSync(oldFilePath).isFile()) {
+      vscode.window
+        .showInformationMessage(
+          "Time Tracking: The storage format has changed to support daily CSV files. Would you like to migrate your existing data?",
+          "Migrate Now",
+          "Later",
+        )
+        .then((selection) => {
+          if (selection === "Migrate Now") {
+            vscode.commands.executeCommand(
+              "time-tracking.migrateToPerDayStorage",
+            );
+          }
+        });
+    } else {
+      // No old data or already using a directory, mark as migrated
+      context.globalState.update("hasMigratedToPerDayStorage", true);
+    }
+  }
 
   // Start idle detection and tracking by default if workspace is present
   const autoTrack = vscode.workspace
@@ -326,6 +366,112 @@ export function activate(context: vscode.ExtensionContext) {
     "timeTracking.isTracking",
     false,
   );
+
+  // // Register migration command for old JSON format (legacy)
+  // const legacyMigrateDataCommand = vscode.commands.registerCommand(
+  //   "time-tracking.migrateData",
+  //   async () => {
+  //     const oldDataPath = path.join(os.homedir(), ".oldTimeTrackingData.json");
+  //     const newDataPath = path.join(context.globalStorageUri.fsPath, "timeTrackingData.json");
+
+  //     if (fs.existsSync(oldDataPath)) {
+  //       try {
+  //         const oldData = JSON.parse(fs.readFileSync(oldDataPath, "utf8"));
+  //         fs.writeFileSync(newDataPath, JSON.stringify(oldData, null, 2));
+  //         vscode.window.showInformationMessage("Data migration completed successfully.");
+  //       } catch (error) {
+  //         vscode.window.showErrorMessage(`Data migration failed: ${error instanceof Error ? error.message : String(error)}`);
+  //       }
+  //     } else {
+  //       vscode.window.showWarningMessage("No old data found to migrate.");
+  //     }
+  //   }
+  // );
+  // context.subscriptions.push(legacyMigrateDataCommand);
+
+  // // Register command for manual migration of data from single file to daily files
+  // const migrateDataCommand = vscode.commands.registerCommand(
+  //   "time-tracking.migrateToPerDayStorage",
+  //   async () => {
+  //     // Get the old file path from settings
+  //     const configPath = vscode.workspace
+  //       .getConfiguration("timeTracking")
+  //       .get<string>("csvFilePath", "~/time-tracking.csv");
+
+  //     // Expand home directory if path starts with ~
+  //     let oldFilePath = configPath;
+  //     if (configPath.startsWith("~/")) {
+  //       oldFilePath = path.join(os.homedir(), configPath.substring(2));
+  //     }
+
+  //     // Check if file exists
+  //     if (!fs.existsSync(oldFilePath)) {
+  //       vscode.window.showInformationMessage(
+  //         "No data to migrate. Original CSV file not found."
+  //       );
+  //       return;
+  //     }
+
+  //     // Confirm migration
+  //     const response = await vscode.window.showWarningMessage(
+  //       "This will migrate your time tracking data from a single CSV to daily CSV files. Continue?",
+  //       "Yes", "No"
+  //     );
+
+  //     if (response !== "Yes") {
+  //       return;
+  //     }
+
+  //     try {
+  //       const success = await timeTracker.migrateDataFromSingleFile(oldFilePath);
+  //       if (success) {
+  //         vscode.window.showInformationMessage(
+  //           "Time tracking data successfully migrated to daily CSV files."
+  //         );
+  //         // Mark migration as done
+  //         context.globalState.update("hasMigratedToPerDayStorage", true);
+  //       } else {
+  //         vscode.window.showErrorMessage("Data migration failed.");
+  //       }
+  //     } catch (error) {
+  //       vscode.window.showErrorMessage(
+  //         `Data migration failed: ${error instanceof Error ? error.message : String(error)}`
+  //       );
+  //     }
+  //   }
+  // );
+
+  // context.subscriptions.push(migrateDataCommand);
+
+  // // Check if data migration from single CSV to per-day CSVs is needed
+  // const hasMigrated = context.globalState.get<boolean>("hasMigratedToPerDayStorage");
+  // if (!hasMigrated) {
+  //   // Check if old CSV file exists
+  //   const configPath = vscode.workspace
+  //     .getConfiguration("timeTracking")
+  //     .get<string>("csvFilePath", "~/time-tracking.csv");
+
+  //   // Expand home directory if path starts with ~
+  //   let oldFilePath = configPath;
+  //   if (configPath.startsWith("~/")) {
+  //     oldFilePath = path.join(os.homedir(), configPath.substring(2));
+  //   }
+
+  //   // If old file exists and looks like a single file (not a directory)
+  //   if (fs.existsSync(oldFilePath) && fs.statSync(oldFilePath).isFile()) {
+  //     vscode.window.showInformationMessage(
+  //       "Time Tracking: The storage format has changed to support daily CSV files. Would you like to migrate your existing data?",
+  //       "Migrate Now", "Later"
+  //     ).then(selection => {
+  //       if (selection === "Migrate Now") {
+  //         vscode.commands.executeCommand("time-tracking.migrateToPerDayStorage");
+  //       }
+  //     });
+  //   } else {
+  //     // No old data or already using a directory, mark as migrated
+  //     context.globalState.update("hasMigratedToPerDayStorage", true);
+  //   }
+  // }
 }
 
 // This method is called when your extension is deactivated

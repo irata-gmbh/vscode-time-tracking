@@ -34,8 +34,11 @@ export class TimeTrackerModel {
     // Initialize the database service
     try {
       this.dbService = new DatabaseService();
-      // Load saved sessions from database
+      // Load today's sessions from database
       this.loadSessions();
+
+      // Check if we need to migrate from older version
+      this.migrateDataIfNeeded();
     } catch (error) {
       vscode.window.showErrorMessage(
         `Failed to initialize time tracking database: ${error instanceof Error ? error.message : String(error)}`,
@@ -53,6 +56,47 @@ export class TimeTrackerModel {
         this.dbService.close();
       },
     });
+  }
+
+  /**
+   * Check if data migration is needed and perform it
+   */
+  private migrateDataIfNeeded(): void {
+    // Check if we've already migrated
+    const hasMigrated = this.context.globalState.get<boolean>(
+      "hasMigratedToPerDayStorage",
+    );
+    if (hasMigrated) {
+      return;
+    }
+
+    // Get the old file path from settings
+    const configPath = vscode.workspace
+      .getConfiguration("timeTracking")
+      .get<string>("csvFilePath", "~/time-tracking.csv");
+
+    // Expand home directory if path starts with ~
+    let oldFilePath = configPath;
+    if (configPath.startsWith("~/")) {
+      const os = require("node:os");
+      const path = require("node:path");
+      oldFilePath = path.join(os.homedir(), configPath.substring(2));
+    }
+
+    try {
+      const success = this.dbService.migrateFromSingleFile(oldFilePath);
+      if (success) {
+        vscode.window.showInformationMessage(
+          "Time tracking data successfully migrated to daily CSV files.",
+        );
+        // Mark migration as done
+        this.context.globalState.update("hasMigratedToPerDayStorage", true);
+      }
+    } catch (error) {
+      vscode.window.showErrorMessage(
+        `Failed to migrate time tracking data: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   /**
@@ -130,10 +174,24 @@ export class TimeTrackerModel {
   }
 
   /**
-   * Gets all tracked sessions
+   * Gets all tracked sessions for today
    */
-  public getSessions(): TimeSession[] {
+  public getTodaySessions(): TimeSession[] {
     return [...this.sessions];
+  }
+
+  /**
+   * Gets all tracked sessions within a date range
+   */
+  public getSessionsInRange(startDate: Date, endDate: Date): TimeSession[] {
+    return this.dbService.loadSessions(startDate, endDate);
+  }
+
+  /**
+   * Gets all tracked sessions across all days
+   */
+  public getAllSessions(): TimeSession[] {
+    return this.dbService.loadSessions();
   }
 
   /**
@@ -163,23 +221,42 @@ export class TimeTrackerModel {
 
   /**
    * Gets total time spent on a specific project
+   * Can be limited to a date range
    */
-  public getProjectTotalTime(project: string): number {
-    return this.dbService.getProjectTotalTime(project);
+  public getProjectTotalTime(
+    project: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): number {
+    return this.dbService.getProjectTotalTime(project, startDate, endDate);
   }
 
   /**
    * Gets statistics for time spent per category
+   * Can be limited to a date range
    */
-  public getCategoryStats(): { category: string; duration: number }[] {
-    return this.dbService.getCategoryStats();
+  public getCategoryStats(
+    startDate?: Date,
+    endDate?: Date,
+  ): { category: string; duration: number }[] {
+    return this.dbService.getCategoryStats(startDate, endDate);
   }
 
   /**
-   * Loads sessions from the database
+   * Gets statistics by day for a date range
+   */
+  public getDailyStats(
+    startDate: Date,
+    endDate: Date,
+  ): { date: string; duration: number }[] {
+    return this.dbService.getDailyStats(startDate, endDate);
+  }
+
+  /**
+   * Loads today's sessions from the database
    */
   private loadSessions(): void {
-    this.sessions = this.dbService.loadSessions();
+    this.sessions = this.dbService.loadTodaySessions();
   }
 
   /**
@@ -203,7 +280,7 @@ export class TimeTrackerModel {
         this.currentSession.endTime.getTime() -
         this.currentSession.startTime.getTime();
 
-      // Store the session in memory array
+      // Store the session in memory array (if it's for today)
       this.sessions.push({ ...this.currentSession });
 
       // Save to database
@@ -219,6 +296,24 @@ export class TimeTrackerModel {
       }
 
       this.currentSession = undefined;
+    }
+  }
+
+  /**
+   * Migrates data from the old single CSV file format to the new per-day format
+   * @param oldFilePath Path to the old single CSV file
+   * @returns true if migration was successful, false otherwise
+   */
+  public async migrateDataFromSingleFile(
+    oldFilePath: string,
+  ): Promise<boolean> {
+    try {
+      return this.dbService.migrateFromSingleFile(oldFilePath);
+    } catch (error) {
+      vscode.window.showErrorMessage(
+        `Failed to migrate time tracking data: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return false;
     }
   }
 }

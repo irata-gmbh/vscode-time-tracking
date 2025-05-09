@@ -15,11 +15,19 @@ export class ReportViewProvider implements vscode.WebviewViewProvider {
   private refreshTimer: NodeJS.Timeout | undefined;
   private webviewView: vscode.WebviewView | undefined;
   private disposables: vscode.Disposable[] = [];
+  private dateRange: { startDate: Date; endDate: Date };
 
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly timeTracker: TimeTrackerModel,
   ) {
+    // Default to showing last 7 days
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - 6); // Last 7 days including today
+
+    this.dateRange = { startDate, endDate };
+
     // Listen for configuration changes
     this.disposables.push(
       vscode.workspace.onDidChangeConfiguration((e) => {
@@ -67,6 +75,14 @@ export class ReportViewProvider implements vscode.WebviewViewProvider {
             webviewView.webview,
           );
           break;
+        case "changeDateRange":
+          if (message.days) {
+            this.updateDateRange(message.days);
+            webviewView.webview.html = this.getHtmlForWebview(
+              webviewView.webview,
+            );
+          }
+          break;
         case "filterByProject":
           // TODO: Implement filtering by project
           break;
@@ -92,6 +108,16 @@ export class ReportViewProvider implements vscode.WebviewViewProvider {
     webviewView.onDidDispose(() => {
       this.stopAutoRefresh();
     });
+  }
+
+  /**
+   * Updates the date range for the report
+   */
+  private updateDateRange(days: number): void {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - (days - 1)); // Include today in count
+    this.dateRange = { startDate, endDate };
   }
 
   /**
@@ -133,9 +159,20 @@ export class ReportViewProvider implements vscode.WebviewViewProvider {
    * Generates HTML for the webview
    */
   private getHtmlForWebview(webview: vscode.Webview): string {
-    const sessions = this.timeTracker.getSessions();
+    // Get sessions for the current date range
+    const sessions = this.timeTracker.getSessionsInRange(
+      this.dateRange.startDate,
+      this.dateRange.endDate,
+    );
+
     const sessionsByDay = groupSessionsByDay(sessions);
     const sessionsByProject = groupSessionsByProject(sessions);
+
+    // Get the daily stats for a visual chart
+    const dailyStats = this.timeTracker.getDailyStats(
+      this.dateRange.startDate,
+      this.dateRange.endDate,
+    );
 
     // Calculate total time
     const totalTime = sessions.reduce(
@@ -149,6 +186,10 @@ export class ReportViewProvider implements vscode.WebviewViewProvider {
       "reportRefreshInterval",
       10,
     );
+
+    // Format date range for display
+    const startDateStr = this.dateRange.startDate.toLocaleDateString();
+    const endDateStr = this.dateRange.endDate.toLocaleDateString();
 
     // Generate HTML for report
     return `<!DOCTYPE html>
@@ -208,6 +249,7 @@ export class ReportViewProvider implements vscode.WebviewViewProvider {
                     padding: 6px 10px;
                     border-radius: 2px;
                     cursor: pointer;
+                    margin: 0 5px;
                 }
                 button:hover {
                     background-color: var(--vscode-button-hoverBackground);
@@ -252,11 +294,56 @@ export class ReportViewProvider implements vscode.WebviewViewProvider {
                     border-top-right-radius: 0;
                     background-color: var(--vscode-editor-inactiveSelectionBackground);
                 }
+                .date-range {
+                    text-align: center;
+                    margin-bottom: 15px;
+                }
+                .date-range-selector {
+                    display: flex;
+                    justify-content: center;
+                    margin-top: 10px;
+                }
+                .date-range-selector button.active {
+                    background-color: var(--vscode-button-secondaryBackground);
+                    color: var(--vscode-button-secondaryForeground);
+                }
+                .chart {
+                    height: 100px;
+                    display: flex;
+                    align-items: flex-end;
+                    margin-top: 15px;
+                    margin-bottom: 15px;
+                }
+                .chart-bar {
+                    flex: 1;
+                    margin: 0 1px;
+                    background-color: var(--vscode-charts-blue);
+                    position: relative;
+                    min-height: 1px;
+                }
+                .chart-label {
+                    text-align: center;
+                    font-size: 10px;
+                    margin-top: 5px;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
             </style>
         </head>
         <body>
             <div class="section">
                 <h2>Time Tracking Summary</h2>
+                <div class="date-range">
+                    <div>Date Range: ${startDateStr} - ${endDateStr}</div>
+                    <div class="date-range-selector">
+                        <button id="day1" class="${this.dateRange.endDate.getDate() - this.dateRange.startDate.getDate() + 1 === 1 ? "active" : ""}">Today</button>
+                        <button id="day7" class="${this.dateRange.endDate.getDate() - this.dateRange.startDate.getDate() + 1 === 7 ? "active" : ""}">Week</button>
+                        <button id="day14" class="${this.dateRange.endDate.getDate() - this.dateRange.startDate.getDate() + 1 === 14 ? "active" : ""}">2 Weeks</button>
+                        <button id="day30" class="${this.dateRange.endDate.getDate() - this.dateRange.startDate.getDate() + 1 === 30 ? "active" : ""}">Month</button>
+                    </div>
+                </div>
+                
                 <div class="summary">
                     <div>
                         <span class="summary-value">${formatDuration(totalTime)}</span>
@@ -270,6 +357,11 @@ export class ReportViewProvider implements vscode.WebviewViewProvider {
                         <span class="summary-value">${sessions.length}</span>
                         <span class="summary-label">Sessions</span>
                     </div>
+                </div>
+                
+                <!-- Daily activity chart -->
+                <div class="chart">
+                    ${this.renderDailyChart(dailyStats)}
                 </div>
             </div>
             
@@ -300,9 +392,60 @@ export class ReportViewProvider implements vscode.WebviewViewProvider {
                         // Persist the open state if needed in the future
                     });
                 });
+                
+                // Date range selector buttons
+                document.getElementById('day1').addEventListener('click', () => {
+                    vscode.postMessage({ command: 'changeDateRange', days: 1 });
+                });
+                document.getElementById('day7').addEventListener('click', () => {
+                    vscode.postMessage({ command: 'changeDateRange', days: 7 });
+                });
+                document.getElementById('day14').addEventListener('click', () => {
+                    vscode.postMessage({ command: 'changeDateRange', days: 14 });
+                });
+                document.getElementById('day30').addEventListener('click', () => {
+                    vscode.postMessage({ command: 'changeDateRange', days: 30 });
+                });
             </script>
         </body>
         </html>`;
+  }
+
+  /**
+   * Renders a chart of daily activity
+   */
+  private renderDailyChart(
+    dailyStats: { date: string; duration: number }[],
+  ): string {
+    if (dailyStats.length === 0) {
+      return "";
+    }
+
+    // Find maximum duration for scaling
+    const maxDuration = Math.max(...dailyStats.map((stat) => stat.duration));
+
+    let chartHtml = "";
+
+    dailyStats.forEach((day) => {
+      // Calculate percentage height (minimum 1%)
+      const heightPercent = maxDuration
+        ? Math.max(1, Math.round((day.duration / maxDuration) * 100))
+        : 1;
+
+      // Get day of week abbreviation
+      const dayOfWeek = new Date(day.date).toLocaleDateString(undefined, {
+        weekday: "short",
+      });
+
+      chartHtml += `
+        <div style="display: flex; flex-direction: column; flex: 1;">
+          <div class="chart-bar" style="height: ${heightPercent}%" title="${formatDuration(day.duration)}"></div>
+          <div class="chart-label">${dayOfWeek}</div>
+        </div>
+      `;
+    });
+
+    return chartHtml;
   }
 
   /**
@@ -312,7 +455,7 @@ export class ReportViewProvider implements vscode.WebviewViewProvider {
     sessionsByProject: Record<string, TimeSession[]>,
   ): string {
     if (Object.keys(sessionsByProject).length === 0) {
-      return '<div class="no-data">No project data available yet</div>';
+      return '<div class="no-data">No project data available for this period</div>';
     }
 
     // Calculate total time for each project
@@ -364,7 +507,7 @@ export class ReportViewProvider implements vscode.WebviewViewProvider {
     sessionsByDay: Record<string, TimeSession[]>,
   ): string {
     if (Object.keys(sessionsByDay).length === 0) {
-      return '<div class="no-data">No activity data available yet</div>';
+      return '<div class="no-data">No activity data available for this period</div>';
     }
 
     // Get dates sorted in descending order
@@ -372,8 +515,17 @@ export class ReportViewProvider implements vscode.WebviewViewProvider {
 
     let activityHtml = "";
 
-    // Show last 7 days at most
-    const recentDates = dates.slice(0, 7);
+    // Show up to the maximum number of days in our date range
+    const daysToShow = Math.min(
+      dates.length,
+      Math.floor(
+        (this.dateRange.endDate.getTime() -
+          this.dateRange.startDate.getTime()) /
+          (24 * 60 * 60 * 1000),
+      ) + 1,
+    );
+
+    const recentDates = dates.slice(0, daysToShow);
 
     recentDates.forEach((date) => {
       const sessions = sessionsByDay[date];

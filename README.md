@@ -10,12 +10,14 @@ Track time spent on different tasks, projects, and files within Visual Studio Co
 - **Auto-Dismissing Notifications**: Idle notifications are automatically dismissed when you resume activity
 - **Manual Control**: Start, stop, or toggle time tracking with simple commands
 - **Activity View**: Visualizes your time data in an easy-to-understand report view
+- **Date Range Reports**: Filter time reports by day, week, 2 weeks, or month
+- **Daily Charts**: Visual representation of time spent each day
 - **Auto-Refreshing Reports**: Report view automatically refreshes at configurable intervals
 - **Categorization**: Add categories to your time sessions for better organization
 - **Session Notes**: Attach notes to your time tracking sessions for later reference
 - **Project Statistics**: See time spent per project and per category
 - **Status Bar Integration**: Shows current tracking status and elapsed time in the status bar
-- **CSV Storage**: Stores time tracking data in a CSV file for simple, human-readable data persistence
+- **Per-Day CSV Storage**: Stores time tracking data in separate CSV files for each day for better organization and performance
 - **Workspace-Level Tracking**: Tracks time at workspace level even when no file is open
 - **Standard Webhooks Integration**: Send time tracking data to external services using Standard Webhooks format
 
@@ -43,8 +45,10 @@ Track time spent on different tasks, projects, and files within Visual Studio Co
 ### Viewing Reports
 
 1. Click on the clock icon in the activity bar to open the Time Tracking view
-2. View summaries of your time spent on different projects and files
-3. Click "Refresh Data" to update the reports with the latest tracking information
+2. Select your desired date range (Today, Week, 2 Weeks, or Month)
+3. View daily activity chart showing time spent each day
+4. View summaries of your time spent on different projects and files
+5. Click "Refresh Data" to update the reports with the latest tracking information
 
 ### Using Webhooks
 
@@ -67,20 +71,24 @@ This extension contributes the following settings:
 * `timeTracking.autoTrack`: Enable/disable automatic time tracking when a workspace is opened (default: `true`)
 * `timeTracking.idleThreshold`: Time in seconds before considering the user idle (default: `300`)
 * `timeTracking.autoDismissIdleNotification`: Enable/disable automatic dismissal of idle notifications when activity resumes (default: `true`)
-* `timeTracking.csvFilePath`: Path to the CSV file for storing time tracking data (default: `~/time-tracking.csv`)
+* `timeTracking.csvFilePath`: Directory path for storing time tracking data (default: `~/time-tracking`)
 * `timeTracking.reportRefreshInterval`: Time in seconds between automatic refreshes of the report view (default: `10`)
 * `timeTracking.webhookUrl`: URL to send webhooks with time tracking events (Standard Webhooks format)
 * `timeTracking.webhookSecret`: Secret for signing webhook payloads (Standard Webhooks format)
 
 ## Data Storage
 
-The extension stores all time tracking data in a CSV file:
+The extension stores all time tracking data in CSV files:
 
-- The default file location is `~/time-tracking.csv`
-- You can change the file location in the extension settings
-- Data is automatically saved to the file when sessions end
-- The CSV format allows for easy viewing and editing with spreadsheet applications
-- The file can be backed up like any other file on your system
+- By default, data is stored in `~/time-tracking/` directory
+- One CSV file is created per day (format: `time-tracking-YYYY-MM-DD.csv`)
+- You can change the directory location in the extension settings
+- Data is automatically saved to the appropriate day's file when sessions end
+- CSV format allows for easy viewing and editing with spreadsheet applications
+- Files can be backed up like any other files on your system
+- The per-day format improves performance with large amounts of time tracking data
+- If you're upgrading from an older version, the extension will offer to migrate your data automatically
+- You can also manually migrate data using the "Time Tracking: Migrate to Per-Day Storage" command
 
 ## Commands
 
@@ -89,6 +97,7 @@ The extension stores all time tracking data in a CSV file:
 * `time-tracking.toggleTracking`: Toggle time tracking on/off
 * `time-tracking.addCategory`: Add a category to the current tracking session
 * `time-tracking.addNotes`: Add notes to the current tracking session
+* `time-tracking.migrateToPerDayStorage`: Migrate data from single CSV file to per-day CSV files
 
 ## Contributing
 

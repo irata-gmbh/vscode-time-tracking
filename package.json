@@ -42,6 +42,10 @@
       {
         "command": "time-tracking.addNotes",
         "title": "Time Tracking: Add Notes"
+      },
+      {
+        "command": "time-tracking.migrateToPerDayStorage",
+        "title": "Time Tracking: Migrate to Per-Day Storage"
       }
     ],
     "viewsContainers": {
@@ -97,8 +101,8 @@
         },
         "timeTracking.csvFilePath": {
           "type": "string",
-          "default": "~/time-tracking.csv",
-          "description": "Path to the CSV file for storing time tracking data"
+          "default": "~/time-tracking",
+          "description": "Directory path for storing time tracking data (one CSV file per day)"
         },
         "timeTracking.reportRefreshInterval": {
           "type": "number",

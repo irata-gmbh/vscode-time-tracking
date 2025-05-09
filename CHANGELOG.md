@@ -6,6 +6,22 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.0.9] - 2025-05-09
+
+### Added
+- Per-day CSV file storage for better data organization and performance
+- Migration tool to convert from single CSV file to per-day files
+- Automatic data migration prompt when upgrading from older versions
+- Daily statistics chart in the report view
+- Date range selection for time reports (today, week, 2 weeks, month)
+
+### Changed
+- Modified `timeTracking.csvFilePath` setting to specify a directory instead of a single file
+- Improved report view with date-based filters and visualization
+- Enhanced data querying with support for date ranges
+- Better performance for large time tracking datasets by loading only relevant data
+- Updated internal architecture to support the new storage format
+
 ## [0.0.8] - 2025-05-09
 
 ### Changed

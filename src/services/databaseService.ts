@@ -8,7 +8,7 @@ import type { TimeSession } from "../models/timeTracker";
  * Service that manages CSV file operations for time tracking data
  */
 export class DatabaseService {
-  private filePath: string;
+  private baseDirectory: string;
   private sessions: TimeSession[] = [];
   private readonly CSV_HEADER =
     "id,fileName,filePath,project,startTime,endTime,duration,category,notes";
@@ -17,11 +17,12 @@ export class DatabaseService {
    * Creates a new DatabaseService
    */
   constructor() {
-    this.filePath = this.getFilePath();
-    this.ensureDirectoryExists(this.filePath);
+    this.baseDirectory = this.getBaseDirectory();
+    this.ensureBaseDirectoryExists();
 
     try {
-      this.loadSessionsFromFile();
+      // Load sessions for the current day initially
+      this.loadSessionsForDay(new Date());
     } catch (error) {
       vscode.window.showErrorMessage(
         `Failed to initialize CSV file: ${error instanceof Error ? error.message : String(error)}`,
@@ -31,12 +32,12 @@ export class DatabaseService {
   }
 
   /**
-   * Gets the CSV file path from settings or uses the default
+   * Gets the base directory for storing CSV files from settings
    */
-  private getFilePath(): string {
+  private getBaseDirectory(): string {
     const configPath = vscode.workspace
       .getConfiguration("timeTracking")
-      .get<string>("csvFilePath", "~/time-tracking.csv");
+      .get<string>("csvFilePath", "~/time-tracking");
 
     // Expand home directory if path starts with ~
     if (configPath.startsWith("~/")) {
@@ -47,14 +48,12 @@ export class DatabaseService {
   }
 
   /**
-   * Ensures that the directory for the CSV file exists
+   * Ensures that the base directory for CSV files exists
    */
-  private ensureDirectoryExists(filePath: string): void {
-    const dir = path.dirname(filePath);
-
-    if (!fs.existsSync(dir)) {
+  private ensureBaseDirectoryExists(): void {
+    if (!fs.existsSync(this.baseDirectory)) {
       try {
-        fs.mkdirSync(dir, { recursive: true });
+        fs.mkdirSync(this.baseDirectory, { recursive: true });
       } catch (error) {
         vscode.window.showErrorMessage(
           `Failed to create directory: ${error instanceof Error ? error.message : String(error)}`,
@@ -62,8 +61,27 @@ export class DatabaseService {
         throw error;
       }
     }
+  }
 
-    // Create the CSV file with headers if it doesn't exist
+  /**
+   * Formats a date in YYYY-MM-DD format
+   */
+  private formatDateToString(date: Date): string {
+    return date.toISOString().split("T")[0]; // YYYY-MM-DD
+  }
+
+  /**
+   * Gets the CSV file path for a specific day
+   */
+  private getFilePathForDay(date: Date): string {
+    const dateString = this.formatDateToString(date);
+    return path.join(this.baseDirectory, `time-tracking-${dateString}.csv`);
+  }
+
+  /**
+   * Ensures that the CSV file for a specific day exists with headers
+   */
+  private ensureFileExists(filePath: string): void {
     if (!fs.existsSync(filePath)) {
       try {
         fs.writeFileSync(filePath, `${this.CSV_HEADER}\n`, "utf8");
@@ -96,59 +114,38 @@ export class DatabaseService {
   }
 
   /**
-   * Saves a time tracking session to the CSV file
+   * Saves a time tracking session to the appropriate day's CSV file
    */
   public saveSession(session: TimeSession): void {
     try {
-      // Always reload sessions from file to ensure we have latest data
-      this.loadSessionsFromFile();
+      // Determine which day file to use based on session start time
+      const sessionDate = new Date(session.startTime);
+      const filePath = this.getFilePathForDay(sessionDate);
 
-      // Add session to in-memory cache
-      const existingIndex = this.sessions.findIndex((s) => s.id === session.id);
+      // Ensure file exists
+      this.ensureFileExists(filePath);
+
+      // Load sessions for this specific day
+      const dailySessions = this.loadSessionsFromFile(filePath);
+
+      // Check if session already exists
+      const existingIndex = dailySessions.findIndex((s) => s.id === session.id);
       if (existingIndex >= 0) {
-        this.sessions[existingIndex] = { ...session };
+        dailySessions[existingIndex] = { ...session };
       } else {
-        this.sessions.push({ ...session });
+        dailySessions.push({ ...session });
       }
 
-      // Convert session to CSV line
-      const line = [
-        session.id,
-        this.escapeCSV(session.fileName),
-        this.escapeCSV(session.filePath),
-        this.escapeCSV(session.project),
-        session.startTime.toISOString(),
-        session.endTime ? session.endTime.toISOString() : "",
-        session.duration,
-        this.escapeCSV(session.category),
-        this.escapeCSV(session.notes),
-      ].join(",");
-
-      // If this is an update to an existing session, rewrite the entire file
-      if (existingIndex >= 0) {
-        this.saveAllSessions();
-      } else {
-        // For new sessions, ensure we're not already in the file before appending
-        // Read the file content first to check for potential duplicates
-        let fileExists = false;
-        try {
-          fileExists = fs.existsSync(this.filePath);
-        } catch (err) {
-          fileExists = false;
-        }
-
-        if (!fileExists) {
-          // Create new file with header and new session
-          fs.writeFileSync(
-            this.filePath,
-            `${this.CSV_HEADER}\n${line}\n`,
-            "utf8",
-          );
-        } else {
-          // Append only the new session
-          fs.appendFileSync(this.filePath, `${line}\n`, "utf8");
-        }
+      // Update in-memory sessions if this is today's data
+      if (
+        this.formatDateToString(sessionDate) ===
+        this.formatDateToString(new Date())
+      ) {
+        this.sessions = dailySessions;
       }
+
+      // Always rewrite the entire day file for consistency
+      this.saveSessionsToFile(dailySessions, filePath);
     } catch (error) {
       vscode.window.showErrorMessage(
         `Failed to save session: ${error instanceof Error ? error.message : String(error)}`,
@@ -157,22 +154,15 @@ export class DatabaseService {
   }
 
   /**
-   * Saves all sessions to the CSV file (used for updates)
-   * This method is more careful to prevent data loss by:
-   * 1. Reading the current file content
-   * 2. Merging with in-memory sessions
-   * 3. Writing back the complete data
+   * Saves a collection of sessions to a specific file
    */
-  private saveAllSessions(): void {
+  private saveSessionsToFile(sessions: TimeSession[], filePath: string): void {
     try {
-      // First ensure we have the latest data from the file
-      this.loadSessionsFromFile();
-
       // Start with header
       let fileContent = `${this.CSV_HEADER}\n`;
 
       // Add each session as a line
-      this.sessions.forEach((session) => {
+      sessions.forEach((session) => {
         const line = [
           session.id,
           this.escapeCSV(session.fileName),
@@ -188,15 +178,15 @@ export class DatabaseService {
       });
 
       // Write to file with a backup strategy
-      const backupPath = `${this.filePath}.backup`;
+      const backupPath = `${filePath}.backup`;
 
       // 1. Create backup of existing file if it exists
-      if (fs.existsSync(this.filePath)) {
-        fs.copyFileSync(this.filePath, backupPath);
+      if (fs.existsSync(filePath)) {
+        fs.copyFileSync(filePath, backupPath);
       }
 
       // 2. Write new content
-      fs.writeFileSync(this.filePath, fileContent, "utf8");
+      fs.writeFileSync(filePath, fileContent, "utf8");
 
       // 3. Remove backup if write was successful
       if (fs.existsSync(backupPath)) {
@@ -208,10 +198,10 @@ export class DatabaseService {
       );
 
       // Try to restore from backup if available
-      const backupPath = `${this.filePath}.backup`;
+      const backupPath = `${filePath}.backup`;
       if (fs.existsSync(backupPath)) {
         try {
-          fs.copyFileSync(backupPath, this.filePath);
+          fs.copyFileSync(backupPath, filePath);
           vscode.window.showInformationMessage(
             "Restored time tracking data from backup.",
           );
@@ -277,16 +267,15 @@ export class DatabaseService {
   }
 
   /**
-   * Loads sessions from the CSV file into memory
+   * Loads sessions from a specific CSV file
    */
-  private loadSessionsFromFile(): void {
-    if (!fs.existsSync(this.filePath)) {
-      this.sessions = [];
-      return;
+  private loadSessionsFromFile(filePath: string): TimeSession[] {
+    if (!fs.existsSync(filePath)) {
+      return [];
     }
 
     try {
-      const fileContent = fs.readFileSync(this.filePath, "utf8");
+      const fileContent = fs.readFileSync(filePath, "utf8");
       const lines = fileContent.split(/\r?\n/);
 
       // Skip header line
@@ -294,7 +283,7 @@ export class DatabaseService {
         lines.shift();
       }
 
-      this.sessions = lines
+      return lines
         .filter((line) => line.trim() !== "") // Skip empty lines
         .map((line) => {
           const values = this.parseCSVLine(line);
@@ -315,30 +304,95 @@ export class DatabaseService {
       vscode.window.showErrorMessage(
         `Failed to load sessions from CSV: ${error instanceof Error ? error.message : String(error)}`,
       );
-      this.sessions = [];
+      return [];
     }
   }
 
   /**
-   * Loads all time tracking sessions
+   * Loads sessions for a specific day
    */
-  public loadSessions(): TimeSession[] {
-    // Reload from file to make sure we have latest data
-    this.loadSessionsFromFile();
+  private loadSessionsForDay(date: Date): void {
+    const filePath = this.getFilePathForDay(date);
+    this.sessions = this.loadSessionsFromFile(filePath);
+  }
+
+  /**
+   * Gets all CSV files in the base directory
+   */
+  private getAvailableDataFiles(): string[] {
+    try {
+      const files = fs
+        .readdirSync(this.baseDirectory)
+        .filter(
+          (file) => file.endsWith(".csv") && file.startsWith("time-tracking-"),
+        )
+        .map((file) => path.join(this.baseDirectory, file));
+      return files;
+    } catch (error) {
+      vscode.window.showErrorMessage(
+        `Failed to read directory: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return [];
+    }
+  }
+
+  /**
+   * Loads all time tracking sessions (from all days)
+   * Can be limited to a date range
+   */
+  public loadSessions(startDate?: Date, endDate?: Date): TimeSession[] {
+    let allSessions: TimeSession[] = [];
+
+    if (startDate && endDate) {
+      // Load sessions for date range
+      const currentDate = new Date(startDate);
+      while (currentDate <= endDate) {
+        const filePath = this.getFilePathForDay(currentDate);
+        const dailySessions = this.loadSessionsFromFile(filePath);
+        allSessions = [...allSessions, ...dailySessions];
+
+        // Move to next day
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    } else {
+      // Load all available sessions
+      const files = this.getAvailableDataFiles();
+      for (const file of files) {
+        const dailySessions = this.loadSessionsFromFile(file);
+        allSessions = [...allSessions, ...dailySessions];
+      }
+    }
+
+    // Sort by start time
+    allSessions.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+
+    return allSessions;
+  }
+
+  /**
+   * Loads sessions for the current day
+   */
+  public loadTodaySessions(): TimeSession[] {
+    const today = new Date();
+    this.loadSessionsForDay(today);
     return [...this.sessions];
   }
 
   /**
    * Gets statistics about time spent per category
+   * Can be limited to a date range
    */
-  public getCategoryStats(): { category: string; duration: number }[] {
-    // Make sure we have latest data
-    this.loadSessionsFromFile();
+  public getCategoryStats(
+    startDate?: Date,
+    endDate?: Date,
+  ): { category: string; duration: number }[] {
+    // Get all sessions in the date range
+    const sessions = this.loadSessions(startDate, endDate);
 
     // Group by category and sum durations
     const categoryMap = new Map<string, number>();
 
-    for (const session of this.sessions) {
+    for (const session of sessions) {
       const category = session.category || "Uncategorized";
       const currentValue = categoryMap.get(category) || 0;
       categoryMap.set(category, currentValue + session.duration);
@@ -353,15 +407,99 @@ export class DatabaseService {
 
   /**
    * Gets total time spent on a specific project
+   * Can be limited to a date range
    */
-  public getProjectTotalTime(project: string): number {
-    // Make sure we have latest data
-    this.loadSessionsFromFile();
+  public getProjectTotalTime(
+    project: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): number {
+    // Get all sessions in the date range
+    const sessions = this.loadSessions(startDate, endDate);
 
     // Sum durations for the specified project
-    return this.sessions
+    return sessions
       .filter((session) => session.project === project)
       .reduce((total, session) => total + session.duration, 0);
+  }
+
+  /**
+   * Gets stats by day for a date range
+   */
+  public getDailyStats(
+    startDate: Date,
+    endDate: Date,
+  ): { date: string; duration: number }[] {
+    const result: { date: string; duration: number }[] = [];
+
+    const currentDate = new Date(startDate);
+    while (currentDate <= endDate) {
+      const dateStr = this.formatDateToString(currentDate);
+      const filePath = this.getFilePathForDay(currentDate);
+      const dailySessions = this.loadSessionsFromFile(filePath);
+
+      const totalDuration = dailySessions.reduce(
+        (sum, session) => sum + session.duration,
+        0,
+      );
+
+      result.push({
+        date: dateStr,
+        duration: totalDuration,
+      });
+
+      // Move to next day
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return result;
+  }
+
+  /**
+   * Migrates data from old format (single CSV) to new format (daily CSV files)
+   * This should be called once during upgrade
+   */
+  public migrateFromSingleFile(oldFilePath: string): boolean {
+    if (!fs.existsSync(oldFilePath)) {
+      return false;
+    }
+
+    try {
+      // Load all sessions from the old file
+      const oldSessions = this.loadSessionsFromFile(oldFilePath);
+
+      // Group sessions by day
+      const sessionsByDay = new Map<string, TimeSession[]>();
+
+      for (const session of oldSessions) {
+        const dateKey = this.formatDateToString(session.startTime);
+        if (!sessionsByDay.has(dateKey)) {
+          sessionsByDay.set(dateKey, []);
+        }
+        sessionsByDay.get(dateKey)?.push(session);
+      }
+
+      // Save each group to its own file
+      for (const [dateKey, sessions] of sessionsByDay.entries()) {
+        const date = new Date(dateKey);
+        const filePath = this.getFilePathForDay(date);
+        this.saveSessionsToFile(sessions, filePath);
+      }
+
+      // Create a backup of the old file
+      const backupPath = `${oldFilePath}.bak`;
+      fs.copyFileSync(oldFilePath, backupPath);
+
+      // Optionally delete the old file
+      // fs.unlinkSync(oldFilePath);
+
+      return true;
+    } catch (error) {
+      vscode.window.showErrorMessage(
+        `Failed to migrate data: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return false;
+    }
   }
 
   /**
